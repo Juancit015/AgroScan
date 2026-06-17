@@ -1,0 +1,307 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --verde-profundo: #1B4332;
+  --verde-medio:    #2D6A4F;
+  --verde-claro:    #52B788;
+  --tierra:         #C8A96E;
+  --crema:          #F7F3EC;
+  --gris-suave:     #E4E0D8;
+  --texto:          #1A1A1A;
+  --texto-suave:    #6B7280;
+  --error:          #DC2626;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--crema);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(82,183,136,0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(27,67,50,0.06) 0%, transparent 40%);
+  pointer-events: none;
+}
+
+/* ── Contenedor principal ── */
+.wrapper {
+  display: flex;
+  width: 100%;
+  max-width: 900px;
+  min-height: 540px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(27,67,50,0.18);
+}
+
+/* ── Panel izquierdo ── */
+.panel-izq {
+  flex: 1;
+  background: var(--verde-profundo);
+  padding: 3rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-izq::before {
+  content: '';
+  position: absolute;
+  bottom: -60px;
+  right: -60px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: rgba(82,183,136,0.12);
+}
+
+.panel-izq::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(200,169,110,0.08);
+}
+
+/* Logo */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.logo-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--tierra);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.logo-text {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.logo-text span { color: var(--tierra); }
+
+/* Contenido central izquierdo */
+.panel-izq-contenido {
+  position: relative;
+  z-index: 1;
+}
+
+.panel-izq-contenido h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+.panel-izq-contenido h2 em {
+  font-style: normal;
+  color: var(--verde-claro);
+}
+
+.panel-izq-contenido p {
+  color: rgba(255,255,255,0.6);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Tags */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.tag {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.7);
+  padding: 0.3rem 0.8rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+}
+
+/* Footer izquierdo */
+.footer-izq {
+  color: rgba(255,255,255,0.3);
+  font-size: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Panel derecho ── */
+.panel-der {
+  flex: 1;
+  background: #fff;
+  padding: 3rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.panel-der h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--texto);
+  margin-bottom: 0.4rem;
+}
+
+.subtitulo {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+}
+
+/* Campo de formulario */
+.campo { margin-bottom: 1.2rem; }
+
+label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--texto);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.input-wrap { position: relative; }
+
+.input-wrap svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--texto-suave);
+  width: 18px;
+  height: 18px;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.85rem 1rem 0.85rem 2.75rem;
+  border: 2px solid var(--gris-suave);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  color: var(--texto);
+  background: var(--crema);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+  letter-spacing: 2px;
+}
+
+input[type="text"]:focus {
+  border-color: var(--verde-claro);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(82,183,136,0.12);
+}
+
+input[type="text"].error-input { border-color: var(--error); }
+
+/* Mensaje de error */
+.mensaje-error {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--error);
+  font-size: 0.82rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+.mensaje-error.visible { display: flex; }
+
+/* Botón */
+.btn-ingresar {
+  width: 100%;
+  padding: 0.9rem;
+  background: var(--verde-profundo);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-ingresar:hover   { background: var(--verde-medio); }
+.btn-ingresar:active  { transform: scale(0.99); }
+.btn-ingresar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Spinner de carga */
+.spinner {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Hint de usuarios de prueba */
+.hint {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(82,183,136,0.08);
+  border-left: 3px solid var(--verde-claro);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--texto-suave);
+  line-height: 1.6;
+}
+
+.hint strong {
+  color: var(--verde-profundo);
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .panel-izq  { display: none; }
+  .wrapper    { border-radius: 16px; }
+  .panel-der  { padding: 2.5rem 1.5rem; }
+}

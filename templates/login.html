@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgroScan — Iniciar sesión</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/css/login.css"/>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- Panel izquierdo -->
+  <div class="panel-izq">
+    <div class="logo">
+      <div class="logo-icon">🌱</div>
+      <span class="logo-text">Agro<span>Scan</span></span>
+    </div>
+    <div class="panel-izq-contenido">
+      <h2>Diagnóstico <em>inteligente</em> para tus cultivos</h2>
+      <p>
+        Fotografía un cultivo y la IA detecta enfermedades, evalúa la madurez
+        y recomienda el tratamiento adecuado con fuentes confiables.
+      </p>
+      <div class="tags">
+        <span class="tag">🥬 Espárrago</span>
+        <span class="tag">🥭 Frutas</span>
+        <span class="tag">🌽 Verduras</span>
+        <span class="tag">🤖 IA Gemini</span>
+        <span class="tag">📊 Dashboard</span>
+      </div>
+    </div>
+    <p class="footer-izq">Desarrollado en Paijan, La Libertad, Perú</p>
+  </div>
+
+  <!-- Panel derecho -->
+  <div class="panel-der">
+    <h1>Bienvenido</h1>
+    <p class="subtitulo">Ingresa tu DNI para acceder al sistema</p>
+
+    <div class="campo">
+      <label for="dni">Número de DNI</label>
+      <div class="input-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0M9 14h.01M15 14h.01M9 17h6"/>
+        </svg>
+        <input
+          type="text"
+          id="dni"
+          placeholder="Ej: 71184654"
+          maxlength="8"
+          autocomplete="off"
+          inputmode="numeric"
+        />
+      </div>
+      <div class="mensaje-error" id="error-msg">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        <span id="error-texto">DNI no registrado en el sistema</span>
+      </div>
+    </div>
+
+    <button class="btn-ingresar" id="btn-login">
+      <div class="spinner" id="spinner"></div>
+      <span id="btn-texto">Ingresar al sistema</span>
+    </button>
+
+    <div class="hint">
+      <strong>👥 Usuarios de prueba</strong>
+      Juan: <b>71184654</b> &nbsp;·&nbsp;
+      David: <b>45231789</b> &nbsp;·&nbsp;
+      Maria: <b>62398541</b>
+    </div>
+  </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
+</body>
+</html>

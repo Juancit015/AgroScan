@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgroScan — Analizador</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-logo">
+      <span class="logo-icon">🌱</span>
+      <span class="logo-text">Agro<span>Scan</span></span>
+    </div>
+    <div class="nav-links">
+      <a href="#" class="nav-link active" data-section="analizador">📷 Analizar</a>
+      <a href="#" class="nav-link" data-section="historial">📋 Historial</a>
+      <a href="#" class="nav-link" data-section="dashboard">📊 Dashboard</a>
+      <a href="#" class="nav-link" data-section="futuro">🔮 Futuro</a>
+    </div>
+    <div class="nav-usuario">
+      <span class="usuario-nombre">👤 {{ usuario }}</span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ══ ANALIZADOR ══ -->
+    <section id="sec-analizador" class="seccion activa">
+      <div class="analizador-grid">
+
+        <!-- Panel cámara -->
+        <div class="panel-camara">
+          <div class="camara-header">
+            <h2>Captura de cultivo</h2>
+            <p>Enfoca bien el cultivo y toma la foto</p>
+          </div>
+          <div class="camara-wrap" id="camara-wrap">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+            <img id="preview" style="display:none;" alt="Vista previa"/>
+            <!-- Overlay de zona afectada -->
+            <div id="zona-overlay" class="zona-overlay" style="display:none;">
+              <div class="zona-label">⚠️ Zona detectada</div>
+            </div>
+            <div class="camara-placeholder" id="placeholder">
+              <span>📷</span>
+              <p>Cámara no iniciada</p>
+            </div>
+            <div class="analizando-overlay" id="overlay" style="display:none;">
+              <div class="pulse-ring"></div>
+              <p>Analizando cultivo...</p>
+            </div>
+          </div>
+          <div id="zona-descripcion" class="zona-descripcion" style="display:none;">
+            <span>🔍</span> <span id="zona-desc-texto"></span>
+            <small>Referencia visual aproximada — no reemplaza evaluación profesional</small>
+          </div>
+          <div class="camara-controles">
+            <button class="btn-secundario" id="btn-camara">Activar cámara</button>
+            <button class="btn-principal" id="btn-foto" disabled>Tomar foto</button>
+            <button class="btn-secundario" id="btn-reiniciar" style="display:none;">Nueva foto</button>
+          </div>
+          <div class="upload-alt">
+            <span>o</span>
+            <label for="input-archivo" class="btn-upload">📁 Subir imagen</label>
+            <input type="file" id="input-archivo" accept="image/*" style="display:none;"/>
+          </div>
+        </div>
+
+        <!-- Panel resultados -->
+        <div class="panel-resultado" id="panel-resultado">
+
+          <!-- Estado inicial -->
+          <div class="resultado-vacio" id="resultado-vacio">
+            <div class="vacio-icon">🌿</div>
+            <h3>Listo para analizar</h3>
+            <p>Toma una foto del cultivo para obtener el diagnóstico con IA</p>
+          </div>
+
+          <!-- Imagen no válida -->
+          <div class="resultado-invalido" id="resultado-invalido" style="display:none;">
+            <div class="invalido-icono">🚫</div>
+            <h3>Imagen no compatible</h3>
+            <p>La imagen no corresponde a un cultivo o producto agrícola.</p>
+            <div class="invalido-lista">
+              <p><strong>AgroScan solo analiza:</strong></p>
+              <ul>
+                <li>🍎 Frutas</li>
+                <li>🥦 Hortalizas</li>
+                <li>🌿 Plantas</li>
+                <li>🍃 Hojas</li>
+                <li>🌾 Cultivos agrícolas</li>
+              </ul>
+            </div>
+            <p class="invalido-accion">Por favor, sube una imagen válida.</p>
+          </div>
+
+          <!-- Resultado -->
+          <div class="resultado-contenido" id="resultado-contenido" style="display:none;">
+
+            <div class="resultado-header">
+              <div>
+                <div class="cultivo-nombre" id="res-cultivo">—</div>
+                <div class="maduracion-tag" id="res-maduracion">—</div>
+              </div>
+            </div>
+
+            <!-- Barra de confianza -->
+            <div class="confianza-wrap">
+              <div class="confianza-label-row">
+                <span>Confianza del diagnóstico</span>
+                <span class="confianza-pct" id="res-confianza-pct">0%</span>
+              </div>
+              <div class="confianza-track">
+                <div class="confianza-fill" id="res-confianza-fill"></div>
+              </div>
+            </div>
+
+            <!-- Enfermedades -->
+            <div class="resultado-bloque" id="bloque-enfermedades" style="display:none;">
+              <h4>⚠️ Posibles enfermedades detectadas</h4>
+              <div id="res-enfermedades"></div>
+            </div>
+            <div class="resultado-sano" id="bloque-sano" style="display:none;">
+              ✅ Cultivo en buen estado — sin enfermedades detectadas
+            </div>
+
+            <!-- Explicación del diagnóstico -->
+            <div class="resultado-bloque" id="bloque-explicacion" style="display:none;">
+              <h4>🔬 ¿Por qué se obtuvo este diagnóstico?</h4>
+              <ul class="explicacion-lista" id="res-explicacion"></ul>
+            </div>
+
+            <!-- Tratamiento -->
+            <div class="resultado-bloque">
+              <h4>💊 Tratamiento recomendado</h4>
+              <p id="res-tratamiento" class="texto-resultado">—</p>
+            </div>
+
+            <!-- Advertencia -->
+            <div class="advertencia-box">
+              <span>⚠️</span>
+              <p id="res-advertencia">Este diagnóstico es orientativo. Consulta a un ingeniero agrónomo.</p>
+            </div>
+
+            <!-- Fuentes -->
+            <div class="resultado-bloque">
+              <h4>📚 Fuentes consultadas</h4>
+              <div id="res-fuentes"></div>
+            </div>
+
+          </div>
+
+          <!-- Error -->
+          <div class="resultado-error" id="resultado-error" style="display:none;">
+            <span>❌</span>
+            <p id="error-texto">Ocurrió un error al analizar.</p>
+            <button class="btn-secundario" onclick="reiniciar()">Intentar de nuevo</button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ HISTORIAL ══ -->
+    <section id="sec-historial" class="seccion">
+      <div class="seccion-header">
+        <h2>Historial de análisis</h2>
+        <p>Todos tus diagnósticos guardados</p>
+      </div>
+      <div id="historial-lista" class="historial-grid">
+        <div class="cargando">Cargando historial...</div>
+      </div>
+    </section>
+
+    <!-- ══ DASHBOARD ══ -->
+    <section id="sec-dashboard" class="seccion">
+      <div class="seccion-header">
+        <h2>Dashboard</h2>
+        <p>Resumen visual de tus análisis</p>
+      </div>
+
+      <!-- Fila 1: Estado + Enfermedades -->
+      <div class="dashboard-grid-2">
+        <div class="chart-card">
+          <h3 class="chart-titulo">Estado de los cultivos</h3>
+          <div class="chart-wrap"><canvas id="chart-estado"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3 class="chart-titulo">Posibles enfermedades detectadas</h3>
+          <div class="chart-wrap"><canvas id="chart-enfermedades"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Fila 2: Cultivos + Actividad -->
+      <div class="dashboard-grid-2">
+        <div class="chart-card">
+          <h3 class="chart-titulo">Cultivos analizados</h3>
+          <div class="chart-wrap"><canvas id="chart-cultivos"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3 class="chart-titulo">Actividad semanal</h3>
+          <div class="chart-wrap"><canvas id="chart-actividad"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Fila 3: Confianza promedio -->
+      <div class="chart-card chart-full">
+        <h3 class="chart-titulo">Confianza promedio de diagnósticos</h3>
+        <div class="confianza-dashboard-wrap">
+          <div class="confianza-track confianza-track-lg">
+            <div class="confianza-fill" id="dash-confianza-fill"></div>
+          </div>
+          <span class="confianza-pct confianza-pct-lg" id="dash-confianza-pct">—</span>
+        </div>
+        <p class="chart-nota">Basado en <span id="dash-total">0</span> análisis realizados</p>
+      </div>
+    </section>
+
+    <!-- ══ FUTURAS INTEGRACIONES ══ -->
+    <section id="sec-futuro" class="seccion">
+      <div class="seccion-header">
+        <h2>Futuras integraciones</h2>
+        <p>Visión de escalabilidad del proyecto</p>
+      </div>
+
+      <div class="futuro-descripcion">
+        <p>
+          AgroScan está diseñado para analizar imágenes independientemente de su origen.
+          Actualmente utiliza fotografías tomadas desde un teléfono móvil, pero en futuras versiones
+          podrá integrarse con drones, robots, cámaras inteligentes e imágenes satelitales para
+          facilitar el monitoreo de grandes extensiones agrícolas.
+        </p>
+      </div>
+
+      <div class="futuro-grid">
+
+        <div class="futuro-card">
+          <div class="futuro-icono">🚁</div>
+          <h3>Integración con drones</h3>
+          <ul>
+            <li>Captura automática de imágenes en grandes extensiones agrícolas</li>
+            <li>Envío automático de fotografías a AgroScan para su análisis</li>
+          </ul>
+          <div class="futuro-badge">En planificación</div>
+        </div>
+
+        <div class="futuro-card">
+          <div class="futuro-icono">📷</div>
+          <h3>Cámaras inteligentes (IoT)</h3>
+          <ul>
+            <li>Monitoreo continuo de cultivos en tiempo real</li>
+            <li>Alertas automáticas cuando se detecten posibles enfermedades</li>
+          </ul>
+          <div class="futuro-badge">En planificación</div>
+        </div>
+
+        <div class="futuro-card">
+          <div class="futuro-icono">🤖</div>
+          <h3>Robots agrícolas</h3>
+          <ul>
+            <li>Inspección autónoma de plantas</li>
+            <li>Captura y análisis en tiempo real</li>
+          </ul>
+          <div class="futuro-badge">En investigación</div>
+        </div>
+
+        <div class="futuro-card">
+          <div class="futuro-icono">🛰️</div>
+          <h3>Imágenes satelitales</h3>
+          <ul>
+            <li>Detección temprana de anomalías en grandes áreas agrícolas</li>
+            <li>Complementar el análisis individual de plantas</li>
+          </ul>
+          <div class="futuro-badge">En investigación</div>
+        </div>
+
+      </div>
+
+      <div class="futuro-nota">
+        <span>⚠️</span>
+        <p>AgroScan es un asistente de apoyo al diagnóstico y no reemplaza la evaluación de un ingeniero agrónomo certificado.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+</html>
