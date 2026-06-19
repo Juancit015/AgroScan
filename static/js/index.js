@@ -13,16 +13,46 @@ const btnReiniciar = document.getElementById('btn-reiniciar');
 const inputArchivo = document.getElementById('input-archivo');
 const btnLogout    = document.getElementById('btn-logout');
 
-// Chart instances
 let chartEstado = null, chartEnfermedades = null, chartCultivos = null, chartActividad = null;
 
-// ── Paleta Chart.js ──────────────────────────────────────────────
 const VERDE_PROFUNDO = '#1B4332';
 const VERDE_CLARO    = '#52B788';
 const TIERRA         = '#C8A96E';
-const ERROR          = '#DC2626';
 const WARNING        = '#D97706';
 const PALETTE = ['#1B4332','#52B788','#C8A96E','#2D6A4F','#B7E4C7','#D97706','#DC2626','#95D5B2'];
+
+// ── Plugin: mensaje cuando el chart queda vacío ──────────────────
+const emptyStatePlugin = {
+  id: 'emptyState',
+  afterDraw(chart) {
+    let isEmpty = false;
+    let mensaje = 'Sin datos visibles';
+
+    if (chart.config.type === 'doughnut' || chart.config.type === 'pie') {
+      const meta   = chart.getDatasetMeta(0);
+      const allHidden = !meta.data.length || meta.data.every(d => d.hidden);
+      const allZero   = chart.data.datasets[0]?.data.every(v => v === 0);
+      isEmpty = allHidden || allZero;
+      if (allHidden && !allZero) mensaje = 'Activa categorías desde la leyenda';
+      if (allZero) mensaje = 'Aún no hay análisis registrados';
+    } else {
+      isEmpty = chart.data.datasets.every((_, i) => !chart.isDatasetVisible(i));
+      if (isEmpty) mensaje = 'Activa categorías desde la leyenda';
+    }
+
+    if (isEmpty) {
+      const { ctx, width, height } = chart;
+      ctx.save();
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle    = '#9CA3AF';
+      ctx.font         = '13px Inter, sans-serif';
+      ctx.fillText(mensaje, width / 2, height / 2);
+      ctx.restore();
+    }
+  }
+};
+Chart.register(emptyStatePlugin);
 
 // ── Navegación ───────────────────────────────────────────────────
 document.querySelectorAll('.nav-link').forEach(link => {
@@ -35,6 +65,7 @@ document.querySelectorAll('.nav-link').forEach(link => {
     document.getElementById(`sec-${sec}`).classList.add('activa');
     if (sec === 'historial') cargarHistorial();
     if (sec === 'dashboard') cargarDashboard();
+    if (sec === 'admin') cargarAdmin();
   });
 });
 
@@ -53,11 +84,11 @@ async function activarCamara() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     video.srcObject = stream;
-    video.style.display  = 'block';
+    video.style.display       = 'block';
     placeholder.style.display = 'none';
-    btnFoto.disabled     = false;
-    btnCamara.style.display    = 'none';
-  } catch (err) {
+    btnFoto.disabled          = false;
+    btnCamara.style.display   = 'none';
+  } catch {
     alert('No se pudo acceder a la cámara. Verifica los permisos del navegador.');
   }
 }
@@ -67,12 +98,10 @@ btnFoto.addEventListener('click', () => {
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
   const b64 = canvas.toDataURL('image/jpeg', 0.9);
-
   preview.src = b64;
   preview.style.display = 'block';
   video.style.display   = 'none';
   if (stream) stream.getTracks().forEach(t => t.stop());
-
   btnFoto.style.display      = 'none';
   btnReiniciar.style.display = 'block';
   analizarImagen(b64);
@@ -85,11 +114,11 @@ inputArchivo.addEventListener('change', e => {
   reader.onload = ev => {
     const b64 = ev.target.result;
     preview.src = b64;
-    preview.style.display    = 'block';
-    video.style.display      = 'none';
+    preview.style.display     = 'block';
+    video.style.display       = 'none';
     placeholder.style.display = 'none';
-    btnFoto.style.display    = 'none';
-    btnCamara.style.display  = 'none';
+    btnFoto.style.display     = 'none';
+    btnCamara.style.display   = 'none';
     btnReiniciar.style.display = 'block';
     analizarImagen(b64);
   };
@@ -105,19 +134,17 @@ function reiniciar() {
   overlay.style.display      = 'none';
   zonaOverlay.style.display  = 'none';
   zonaDescDiv.style.display  = 'none';
-
   btnCamara.style.display    = 'block';
   btnFoto.style.display      = 'block';
   btnReiniciar.style.display = 'none';
   btnFoto.disabled = true;
-
   mostrarEstadoVacio();
   inputArchivo.value = '';
 }
 
 // ── Analizar imagen ──────────────────────────────────────────────
 async function analizarImagen(b64) {
-  overlay.style.display = 'flex';
+  overlay.style.display     = 'flex';
   zonaOverlay.style.display = 'none';
   zonaDescDiv.style.display = 'none';
   mostrarEstadoVacio();
@@ -131,14 +158,11 @@ async function analizarImagen(b64) {
     const data = await res.json();
     overlay.style.display = 'none';
 
-    if (!res.ok) { mostrarError(data.error || 'Error al analizar.'); return; }
-
-    // Imagen no válida
+    if (!res.ok)              { mostrarError(data.error || 'Error al analizar.'); return; }
     if (data.valido === false) { mostrarInvalido(); return; }
 
     mostrarResultado(data);
-
-  } catch (err) {
+  } catch {
     overlay.style.display = 'none';
     mostrarError('Error de conexión con el servidor.');
   }
@@ -154,12 +178,11 @@ function mostrarResultado(data) {
   document.getElementById('res-tratamiento').textContent = data.tratamiento || '—';
   document.getElementById('res-advertencia').textContent = data.advertencia || '';
 
-  // Barra de confianza
   renderConfianzaBar(data.confianza || 0, 'res-confianza-fill', 'res-confianza-pct');
 
   // Enfermedades
-  const enfs = data.enfermedades || [];
-  const bloqEnf  = document.getElementById('bloque-enfermedades');
+  const enfs    = data.enfermedades || [];
+  const bloqEnf = document.getElementById('bloque-enfermedades');
   const bloqSano = document.getElementById('bloque-sano');
   const contEnf  = document.getElementById('res-enfermedades');
   contEnf.innerHTML = '';
@@ -181,15 +204,13 @@ function mostrarResultado(data) {
   }
 
   // Explicación
-  const explicacion = data.explicacion || [];
+  const exp     = data.explicacion || [];
   const bloqExp = document.getElementById('bloque-explicacion');
   const listaExp = document.getElementById('res-explicacion');
   listaExp.innerHTML = '';
-  if (explicacion.length > 0) {
+  if (exp.length > 0) {
     bloqExp.style.display = 'block';
-    explicacion.forEach(obs => {
-      listaExp.innerHTML += `<li>${obs}</li>`;
-    });
+    exp.forEach(obs => { listaExp.innerHTML += `<li>${obs}</li>`; });
   } else {
     bloqExp.style.display = 'none';
   }
@@ -202,7 +223,6 @@ function mostrarResultado(data) {
     zonaOverlay.style.width  = zona.width  + '%';
     zonaOverlay.style.height = zona.height + '%';
     zonaOverlay.style.display = 'block';
-
     if (zona.descripcion) {
       zonaDescText.textContent  = zona.descripcion;
       zonaDescDiv.style.display = 'flex';
@@ -211,10 +231,10 @@ function mostrarResultado(data) {
 
   // Fuentes
   const fuentes = data.fuentes || [];
-  const contFuentes = document.getElementById('res-fuentes');
-  contFuentes.innerHTML = '';
+  const contF   = document.getElementById('res-fuentes');
+  contF.innerHTML = '';
   fuentes.forEach(f => {
-    contFuentes.innerHTML += `
+    contF.innerHTML += `
       <a class="fuente-link" href="${f.url}" target="_blank" rel="noopener">
         <span class="fuente-institucion">${f.institucion}</span>
         <span class="fuente-titulo">${f.titulo}</span>
@@ -225,9 +245,9 @@ function mostrarResultado(data) {
 // ── Barra de confianza ───────────────────────────────────────────
 function renderConfianzaBar(valor, fillId, pctId) {
   const fill = document.getElementById(fillId);
-  const pct  = document.getElementById(pctId);
+  const pct  = pctId ? document.getElementById(pctId) : null;
   fill.style.width = valor + '%';
-  fill.className = 'confianza-fill';
+  fill.className   = 'confianza-fill';
   if (valor >= 80)      fill.classList.add('verde');
   else if (valor >= 60) fill.classList.add('amarillo');
   else                  fill.classList.add('rojo');
@@ -239,15 +259,9 @@ function ocultarTodos() {
   ['resultado-vacio','resultado-invalido','resultado-contenido','resultado-error']
     .forEach(id => document.getElementById(id).style.display = 'none');
 }
-function mostrarEstadoVacio() {
-  ocultarTodos();
-  document.getElementById('resultado-vacio').style.display = 'flex';
-}
-function mostrarInvalido() {
-  ocultarTodos();
-  document.getElementById('resultado-invalido').style.display = 'flex';
-}
-function mostrarError(msg) {
+function mostrarEstadoVacio() { ocultarTodos(); document.getElementById('resultado-vacio').style.display = 'flex'; }
+function mostrarInvalido()    { ocultarTodos(); document.getElementById('resultado-invalido').style.display = 'flex'; }
+function mostrarError(msg)    {
   ocultarTodos();
   document.getElementById('resultado-error').style.display = 'flex';
   document.getElementById('error-texto').textContent = msg;
@@ -261,17 +275,36 @@ async function cargarHistorial() {
     const res  = await fetch('/historial');
     const data = await res.json();
     if (!data.length) { lista.innerHTML = '<div class="cargando">No hay análisis guardados aún.</div>'; return; }
-    lista.innerHTML = data.map(item => `
-      <div class="historial-card">
-        <div class="historial-card-header">
-          <div class="historial-cultivo">${item.cultivo || 'Desconocido'}</div>
-          <div class="historial-fecha">${formatearFecha(item.fecha)}</div>
-        </div>
-        <div class="historial-maduracion">${item.maduracion || '—'}</div>
-        <div>${(item.enfermedades||[]).map(e =>
-          `<span class="historial-enfermedad-tag">⚠️ ${e.nombre}</span>`
-        ).join('') || '<span class="historial-enfermedad-tag" style="background:#DCFCE7;color:#166534">✅ Sano</span>'}</div>
-      </div>`).join('');
+
+    lista.innerHTML = data.map(item => {
+      const imgHtml = item.imagen_path
+        ? `<div class="historial-img-wrap"><img src="/static/${item.imagen_path}" alt="${item.cultivo}" class="historial-img"/></div>`
+        : `<div class="historial-img-wrap historial-img-placeholder">📷</div>`;
+
+      const enfsHtml = (item.enfermedades||[]).map(e =>
+        `<span class="historial-enfermedad-tag">⚠️ ${e.nombre}</span>`
+      ).join('') || '<span class="historial-enfermedad-tag historial-tag-sano">✅ Sano</span>';
+
+      return `
+        <div class="historial-card">
+          ${imgHtml}
+          <div class="historial-info">
+            <div class="historial-card-header">
+              <div class="historial-cultivo">${item.cultivo || 'Desconocido'}</div>
+              <div class="historial-fecha">${formatearFecha(item.fecha)}</div>
+            </div>
+            <div class="historial-maduracion">${item.maduracion || '—'}</div>
+            <div class="historial-confianza-wrap">
+              <div class="confianza-track historial-confianza-track">
+                <div class="confianza-fill ${item.confianza >= 80 ? 'verde' : item.confianza >= 60 ? 'amarillo' : 'rojo'}"
+                     style="width:${item.confianza||0}%"></div>
+              </div>
+              <span class="historial-confianza-pct">${item.confianza||0}%</span>
+            </div>
+            <div>${enfsHtml}</div>
+          </div>
+        </div>`;
+    }).join('');
   } catch { lista.innerHTML = '<div class="cargando">Error al cargar historial.</div>'; }
 }
 
@@ -281,14 +314,22 @@ async function cargarDashboard() {
     const res  = await fetch('/estadisticas');
     const data = await res.json();
 
-    // Total y confianza promedio
     document.getElementById('dash-total').textContent = data.total_analisis;
     renderConfianzaBar(data.confianza_promedio, 'dash-confianza-fill', null);
     document.getElementById('dash-confianza-pct').textContent = data.confianza_promedio + '%';
 
-    const chartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 11 }, padding: 12 } } } };
+    const baseOpts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { family: 'Inter', size: 11 }, padding: 12, usePointStyle: true }
+        }
+      }
+    };
 
-    // 1. Estado de cultivos (doughnut)
+    // 1. Estado
     if (chartEstado) chartEstado.destroy();
     const estado = data.por_estado;
     chartEstado = new Chart(document.getElementById('chart-estado'), {
@@ -297,10 +338,10 @@ async function cargarDashboard() {
         labels: ['Sanos', 'Posibles enfermedades'],
         datasets: [{ data: [estado.sanos, estado.enfermos], backgroundColor: [VERDE_CLARO, WARNING], borderWidth: 0, hoverOffset: 6 }]
       },
-      options: { ...chartOpts, cutout: '65%' }
+      options: { ...baseOpts, cutout: '65%' }
     });
 
-    // 2. Posibles enfermedades (barra horizontal)
+    // 2. Enfermedades
     if (chartEnfermedades) chartEnfermedades.destroy();
     const enfs = data.por_enfermedad;
     if (enfs.length > 0) {
@@ -310,13 +351,13 @@ async function cargarDashboard() {
           labels: enfs.map(e => e.nombre),
           datasets: [{ label: 'Frecuencia', data: enfs.map(e => e.cantidad), backgroundColor: WARNING, borderRadius: 6, borderSkipped: false }]
         },
-        options: { ...chartOpts, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { stepSize: 1 }, grid: { display: false } }, y: { grid: { display: false } } } }
+        options: { ...baseOpts, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { stepSize: 1 }, grid: { display: false } }, y: { grid: { display: false } } } }
       });
     } else {
       document.getElementById('chart-enfermedades').parentElement.innerHTML = '<p class="cargando">Sin enfermedades registradas aún.</p>';
     }
 
-    // 3. Cultivos analizados (doughnut)
+    // 3. Cultivos
     if (chartCultivos) chartCultivos.destroy();
     const cultivos = data.por_cultivo;
     if (cultivos.length > 0) {
@@ -326,13 +367,13 @@ async function cargarDashboard() {
           labels: cultivos.map(c => c.cultivo),
           datasets: [{ data: cultivos.map(c => c.cantidad), backgroundColor: PALETTE, borderWidth: 0, hoverOffset: 6 }]
         },
-        options: { ...chartOpts, cutout: '55%' }
+        options: { ...baseOpts, cutout: '55%' }
       });
     } else {
       document.getElementById('chart-cultivos').parentElement.innerHTML = '<p class="cargando">Sin datos aún.</p>';
     }
 
-    // 4. Actividad semanal (línea)
+    // 4. Actividad semanal
     if (chartActividad) chartActividad.destroy();
     const act = data.actividad_semanal;
     chartActividad = new Chart(document.getElementById('chart-actividad'), {
@@ -351,23 +392,162 @@ async function cargarDashboard() {
           pointRadius: 4
         }]
       },
-      options: { ...chartOpts, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }
+      options: { ...baseOpts, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }
     });
 
-  } catch (err) {
-    console.error('Error cargando dashboard:', err);
-  }
+  } catch (err) { console.error('Dashboard error:', err); }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
-function formatearFecha(fechaStr) {
-  if (!fechaStr) return '—';
-  return new Date(fechaStr).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+function formatearFecha(f) {
+  if (!f) return '—';
+  return new Date(f).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-function formatearDia(diaStr) {
-  if (!diaStr) return '';
-  const [,, d] = diaStr.split('-');
+function formatearDia(d) {
+  if (!d) return '';
   const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const mes = parseInt(diaStr.split('-')[1]) - 1;
-  return `${parseInt(d)} ${meses[mes]}`;
+  const [,m, dia] = d.split('-');
+  return `${parseInt(dia)} ${meses[parseInt(m)-1]}`;
+}
+
+// ── Admin ─────────────────────────────────────────────────────────
+const esAdmin = document.querySelector('.nav-admin') !== null;
+
+if (esAdmin) {
+  document.getElementById('btn-nuevo-usuario')?.addEventListener('click', () => {
+    document.getElementById('admin-form').style.display = 'flex';
+    document.getElementById('btn-nuevo-usuario').style.display = 'none';
+  });
+
+  document.getElementById('btn-cancelar-usuario')?.addEventListener('click', () => {
+    document.getElementById('admin-form').style.display = 'none';
+    document.getElementById('btn-nuevo-usuario').style.display = 'block';
+    limpiarFormAdmin();
+  });
+
+  document.getElementById('btn-guardar-usuario')?.addEventListener('click', guardarUsuario);
+
+  // Solo números en clave
+  document.getElementById('form-clave')?.addEventListener('input', function() {
+    this.value = this.value.replace(/\D/g, '');
+  });
+}
+
+async function cargarAdmin() {
+  await Promise.all([cargarAdminStats(), cargarAdminUsuarios()]);
+}
+
+async function cargarAdminStats() {
+  const grid = document.getElementById('admin-stats-grid');
+  try {
+    const res  = await fetch('/admin/estadisticas');
+    const data = await res.json();
+
+    grid.innerHTML = `
+      <div class="admin-stat-card">
+        <div class="admin-stat-num">${data.total_analisis}</div>
+        <div class="admin-stat-label">Análisis totales</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-num">${data.total_usuarios}</div>
+        <div class="admin-stat-label">Usuarios registrados</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-num">${data.confianza_promedio}%</div>
+        <div class="admin-stat-label">Confianza promedio global</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-num">🦠</div>
+        <div class="admin-stat-label">Enfermedad más común</div>
+        <div class="admin-stat-sub">${data.enfermedad_comun}</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-num">🏆</div>
+        <div class="admin-stat-label">Usuario más activo</div>
+        <div class="admin-stat-sub">${data.usuario_mas_activo?.nombre || '—'} (${data.usuario_mas_activo?.cantidad || 0} análisis)</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-num">${data.por_estado?.sanos || 0} / ${data.por_estado?.enfermos || 0}</div>
+        <div class="admin-stat-label">Sanos / Con posibles enfermedades</div>
+      </div>
+    `;
+  } catch { grid.innerHTML = '<div class="cargando">Error al cargar estadísticas.</div>'; }
+}
+
+async function cargarAdminUsuarios() {
+  const lista = document.getElementById('admin-usuarios-lista');
+  try {
+    const res   = await fetch('/admin/usuarios');
+    const users = await res.json();
+
+    lista.innerHTML = users.map(u => `
+      <div class="admin-usuario-row" id="user-row-${u.id}">
+        <div class="admin-usuario-info">
+          <div class="admin-usuario-nombre">${u.nombre}</div>
+          <div class="admin-usuario-meta">
+            ${u.total_analisis} análisis
+            ${u.ultimo_analisis ? '· último: ' + formatearFecha(u.ultimo_analisis) : '· sin análisis'}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <span class="admin-usuario-rol rol-${u.rol}">${u.rol === 'admin' ? '⚙️ Admin' : '🌱 Agricultor'}</span>
+          <button class="btn-eliminar" onclick="eliminarUsuario(${u.id}, '${u.nombre}')">Eliminar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch { lista.innerHTML = '<div class="cargando">Error al cargar usuarios.</div>'; }
+}
+
+async function guardarUsuario() {
+  const nombre = document.getElementById('form-nombre').value.trim();
+  const clave  = document.getElementById('form-clave').value.trim();
+  const rol    = document.getElementById('form-rol').value;
+  const errEl  = document.getElementById('admin-form-error');
+
+  errEl.style.display = 'none';
+
+  if (!nombre || !clave) { mostrarErrorAdmin('Completa todos los campos.'); return; }
+  if (clave.length !== 8) { mostrarErrorAdmin('La clave debe tener exactamente 8 dígitos.'); return; }
+
+  try {
+    const res  = await fetch('/admin/usuarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, clave, rol })
+    });
+    const data = await res.json();
+    if (!res.ok) { mostrarErrorAdmin(data.error); return; }
+
+    document.getElementById('admin-form').style.display = 'none';
+    document.getElementById('btn-nuevo-usuario').style.display = 'block';
+    limpiarFormAdmin();
+    cargarAdminUsuarios();
+  } catch { mostrarErrorAdmin('Error de conexión.'); }
+}
+
+async function eliminarUsuario(uid, nombre) {
+  if (!confirm(`¿Eliminar a ${nombre}? Se borrarán también todos sus análisis.`)) return;
+  try {
+    const res = await fetch(`/admin/usuarios/${uid}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById(`user-row-${uid}`)?.remove();
+      cargarAdminStats();
+    } else {
+      alert(data.error);
+    }
+  } catch { alert('Error al eliminar.'); }
+}
+
+function mostrarErrorAdmin(msg) {
+  const el = document.getElementById('admin-form-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function limpiarFormAdmin() {
+  document.getElementById('form-nombre').value = '';
+  document.getElementById('form-clave').value  = '';
+  document.getElementById('form-rol').value    = 'agricultor';
+  document.getElementById('admin-form-error').style.display = 'none';
 }

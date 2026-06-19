@@ -40,7 +40,6 @@ def inicializar_db():
         )
     """)
 
-    # Migración: agrega columnas nuevas si no existen
     for col in [("explicacion", "TEXT"), ("zona_afectada", "TEXT")]:
         try:
             cur.execute(f"ALTER TABLE analisis ADD COLUMN {col[0]} {col[1]}")
@@ -131,7 +130,6 @@ def obtener_estadisticas(usuario_id):
     row = cur.fetchone()
     confianza_promedio = round(row[0] or 0)
 
-    # Actividad últimos 7 días
     hoy = datetime.now().date()
     ultimos_7 = [(hoy - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
     cur.execute("""
@@ -142,7 +140,6 @@ def obtener_estadisticas(usuario_id):
     act_dict = {r["dia"]: r["cantidad"] for r in cur.fetchall()}
     actividad_semanal = [{"dia": d, "cantidad": act_dict.get(d, 0)} for d in ultimos_7]
 
-    # Por estado y frecuencia de enfermedades
     cur.execute("SELECT enfermedades FROM analisis WHERE usuario_id = ?", (usuario_id,))
     sanos = enfermos = 0
     enf_freq = {}
@@ -163,10 +160,212 @@ def obtener_estadisticas(usuario_id):
 
     conn.close()
     return {
-        "total_analisis":    total,
-        "por_cultivo":       por_cultivo,
+        "total_analisis":     total,
+        "por_cultivo":        por_cultivo,
         "confianza_promedio": confianza_promedio,
-        "actividad_semanal": actividad_semanal,
-        "por_estado":        {"sanos": sanos, "enfermos": enfermos, "total": total},
-        "por_enfermedad":    por_enfermedad
+        "actividad_semanal":  actividad_semanal,
+        "por_estado":         {"sanos": sanos, "enfermos": enfermos, "total": total},
+        "por_enfermedad":     por_enfermedad
+    }
+
+
+# ── Funciones admin ──────────────────────────────────────────────
+
+def obtener_todos_usuarios():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT u.id, u.nombre, u.dni, u.rol,
+               COUNT(a.id) as total_analisis
+        FROM usuarios u
+        LEFT JOIN analisis a ON a.usuario_id = u.id
+        GROUP BY u.id
+        ORDER BY u.rol DESC, u.nombre
+    """)
+    usuarios = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return usuarios
+
+
+def agregar_usuario(nombre, dni, rol="agricultor"):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("INSERT INTO usuarios (nombre, dni, rol) VALUES (?, ?, ?)", (nombre, dni, rol))
+        conn.commit()
+        uid = cur.lastrowid
+        conn.close()
+        return {"ok": True, "id": uid}
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {"ok": False, "error": "La clave ya está registrada"}
+
+
+def eliminar_usuario(usuario_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM analisis WHERE usuario_id = ?", (usuario_id,))
+    cur.execute("DELETE FROM usuarios WHERE id = ?", (usuario_id,))
+    conn.commit()
+    conn.close()
+
+
+def obtener_estadisticas_globales():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM analisis")
+    total = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM usuarios")
+    total_usuarios = cur.fetchone()[0]
+
+    cur.execute("SELECT AVG(confianza) FROM analisis WHERE confianza IS NOT NULL")
+    row = cur.fetchone()
+    confianza_promedio = round(row[0] or 0)
+
+    cur.execute("""
+        SELECT u.nombre, COUNT(a.id) as total
+        FROM usuarios u
+        LEFT JOIN analisis a ON a.usuario_id = u.id
+        GROUP BY u.id ORDER BY total DESC
+    """)
+    por_usuario = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("""
+        SELECT cultivo, COUNT(*) as cantidad FROM analisis
+        WHERE cultivo IS NOT NULL
+        GROUP BY cultivo ORDER BY cantidad DESC LIMIT 6
+    """)
+    por_cultivo = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("SELECT enfermedades FROM analisis")
+    sanos = enfermos = 0
+    enf_freq = {}
+    for r in cur.fetchall():
+        enfs = json.loads(r["enfermedades"] or "[]")
+        if enfs:
+            enfermos += 1
+            for e in enfs:
+                n = e.get("nombre", "Desconocida")
+                enf_freq[n] = enf_freq.get(n, 0) + 1
+        else:
+            sanos += 1
+
+    hoy = datetime.now().date()
+    ultimos_7 = [(hoy - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
+    cur.execute("""
+        SELECT date(fecha) as dia, COUNT(*) as cantidad FROM analisis
+        WHERE date(fecha) >= ? GROUP BY date(fecha)
+    """, (ultimos_7[0],))
+    act_dict = {r["dia"]: r["cantidad"] for r in cur.fetchall()}
+    actividad_semanal = [{"dia": d, "cantidad": act_dict.get(d, 0)} for d in ultimos_7]
+
+    conn.close()
+    return {
+        "total_analisis":     total,
+        "total_usuarios":     total_usuarios,
+        "confianza_promedio": confianza_promedio,
+        "por_usuario":        por_usuario,
+        "por_cultivo":        por_cultivo,
+        "por_estado":         {"sanos": sanos, "enfermos": enfermos},
+        "por_enfermedad":     sorted([{"nombre": k, "cantidad": v} for k, v in enf_freq.items()], key=lambda x: x["cantidad"], reverse=True)[:6],
+        "actividad_semanal":  actividad_semanal
+    }
+
+
+# ── Funciones de admin ────────────────────────────────────────────
+
+def obtener_todos_usuarios():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT u.id, u.nombre, u.dni, u.rol,
+               COUNT(a.id) as total_analisis,
+               MAX(a.fecha) as ultimo_analisis
+        FROM usuarios u
+        LEFT JOIN analisis a ON a.usuario_id = u.id
+        GROUP BY u.id ORDER BY u.nombre
+    """)
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def agregar_usuario(nombre, dni, rol="agricultor"):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("INSERT INTO usuarios (nombre, dni, rol) VALUES (?, ?, ?)", (nombre, dni, rol))
+        conn.commit()
+        uid = cur.lastrowid
+        conn.close()
+        return {"ok": True, "id": uid}
+    except Exception as e:
+        conn.close()
+        return {"ok": False, "error": str(e)}
+
+
+def eliminar_usuario(usuario_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM analisis WHERE usuario_id = ?", (usuario_id,))
+    cur.execute("DELETE FROM usuarios WHERE id = ?", (usuario_id,))
+    conn.commit()
+    conn.close()
+
+
+def obtener_estadisticas_globales():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM analisis")
+    total = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM usuarios")
+    total_usuarios = cur.fetchone()[0]
+
+    cur.execute("""
+        SELECT u.nombre, COUNT(a.id) as cantidad
+        FROM usuarios u LEFT JOIN analisis a ON a.usuario_id = u.id
+        GROUP BY u.id ORDER BY cantidad DESC LIMIT 1
+    """)
+    r = cur.fetchone()
+    usuario_mas_activo = dict(r) if r else {}
+
+    cur.execute("SELECT AVG(confianza) FROM analisis WHERE confianza IS NOT NULL")
+    r = cur.fetchone()
+    confianza_promedio = round(r[0] or 0)
+
+    cur.execute("SELECT enfermedades FROM analisis")
+    enf_freq = {}
+    sanos = enfermos = 0
+    for row in cur.fetchall():
+        enfs = json.loads(row["enfermedades"] or "[]")
+        if enfs:
+            enfermos += 1
+            for e in enfs:
+                n = e.get("nombre", "Desconocida")
+                enf_freq[n] = enf_freq.get(n, 0) + 1
+        else:
+            sanos += 1
+
+    enfermedad_comun = max(enf_freq, key=enf_freq.get) if enf_freq else "—"
+
+    cur.execute("""
+        SELECT u.nombre, COUNT(a.id) as cantidad
+        FROM usuarios u LEFT JOIN analisis a ON a.usuario_id = u.id
+        GROUP BY u.id ORDER BY u.nombre
+    """)
+    actividad_usuarios = [dict(r) for r in cur.fetchall()]
+
+    conn.close()
+    return {
+        "total_analisis":     total,
+        "total_usuarios":     total_usuarios,
+        "usuario_mas_activo": usuario_mas_activo,
+        "confianza_promedio": confianza_promedio,
+        "enfermedad_comun":   enfermedad_comun,
+        "por_estado":         {"sanos": sanos, "enfermos": enfermos},
+        "actividad_usuarios": actividad_usuarios
     }

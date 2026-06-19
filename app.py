@@ -1,9 +1,14 @@
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 from dotenv import load_dotenv
-from database import inicializar_db, buscar_usuario_por_dni, guardar_analisis, obtener_historial, obtener_estadisticas
+from functools import wraps
+from database import (inicializar_db, buscar_usuario_por_dni, guardar_analisis,
+                      obtener_historial, obtener_estadisticas,
+                      obtener_todos_usuarios, agregar_usuario, eliminar_usuario,
+                      obtener_estadisticas_globales)
 from groq import Groq
-import base64, os, json, re
+import base64, os, json, re, uuid
+from datetime import datetime
 
 load_dotenv()
 
@@ -29,68 +34,56 @@ PASO 2 — Diagnóstico (solo si es agrícola):
   "maduracion": "Verde / En desarrollo / Listo para cosecha / Sobre maduro",
   "confianza": 85,
   "enfermedades": [
-    {
-      "nombre": "nombre de la enfermedad o plaga",
-      "severidad": "Leve / Moderada / Severa",
-      "descripcion": "breve descripción visual"
-    }
+    {"nombre": "nombre","severidad": "Leve / Moderada / Severa","descripcion": "descripción visual"}
   ],
-  "explicacion": [
-    "Observación visual 1 que llevó al diagnóstico",
-    "Observación visual 2 que llevó al diagnóstico",
-    "Observación visual 3 que llevó al diagnóstico"
-  ],
-  "zona_afectada": {
-    "x": 20,
-    "y": 30,
-    "width": 40,
-    "height": 35,
-    "descripcion": "Zona con mayor evidencia de la condición detectada"
-  },
-  "tratamiento": "recomendación concreta de qué hacer",
+  "explicacion": ["Observación 1","Observación 2","Observación 3"],
+  "zona_afectada": {"x":20,"y":30,"width":40,"height":35,"descripcion":"Zona afectada"},
+  "tratamiento": "recomendación concreta",
   "advertencia": "Este diagnóstico es orientativo. Consulta a un ingeniero agrónomo para confirmación.",
-  "fuentes": [
-    {
-      "titulo": "título de la fuente",
-      "url": "https://url-de-la-fuente.com",
-      "institucion": "FAO / SENASA / MINAGRI / otro"
-    }
-  ]
+  "fuentes": [{"titulo":"título","url":"https://url.com","institucion":"FAO / SENASA / MINAGRI"}]
 }
-
-Notas:
-- Si no hay enfermedades: "enfermedades" = [] y "zona_afectada" = {}
-- zona_afectada: coordenadas aproximadas en % (0-100) de la zona más afectada visible
-- explicacion: 3 a 5 observaciones visuales específicas y concretas
+Si no hay enfermedades: "enfermedades"=[] y "zona_afectada"={}
+explicacion: 3-5 observaciones visuales específicas.
 """
+
+# ── Decorador admin ───────────────────────────────────────────────
+def requiere_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get("rol") != "admin":
+            return jsonify({"error": "Acceso denegado"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+# ── Rutas principales ─────────────────────────────────────────────
 
 @app.route("/")
 def index():
     if "usuario_id" not in session:
         return render_template("login.html")
-    return render_template("index.html", usuario=session.get("nombre"))
-
+    return render_template("index.html",
+                           usuario=session.get("nombre"),
+                           rol=session.get("rol"))
 
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    dni = data.get("dni", "").strip()
+    dni  = data.get("dni", "").strip()
     if not dni:
-        return jsonify({"error": "Ingresa tu DNI"}), 400
+        return jsonify({"error": "Ingresa tu clave"}), 400
     usuario = buscar_usuario_por_dni(dni)
     if not usuario:
-        return jsonify({"error": "DNI no registrado en el sistema"}), 401
+        return jsonify({"error": "Credenciales incorrectas"}), 401
     session["usuario_id"] = usuario["id"]
     session["nombre"]     = usuario["nombre"]
     session["rol"]        = usuario["rol"]
-    return jsonify({"mensaje": f"Bienvenido, {usuario['nombre']}!", "nombre": usuario["nombre"], "rol": usuario["rol"]})
-
+    return jsonify({"mensaje": f"Bienvenido, {usuario['nombre']}!",
+                    "nombre": usuario["nombre"], "rol": usuario["rol"]})
 
 @app.route("/logout")
 def logout():
     session.clear()
     return jsonify({"mensaje": "Sesión cerrada"})
-
 
 @app.route("/analizar", methods=["POST"])
 def analizar():
@@ -103,28 +96,31 @@ def analizar():
         imagen_base64 = data["imagen"]
         if "," in imagen_base64:
             imagen_base64 = imagen_base64.split(",")[1]
+        imagen_bytes = base64.b64decode(imagen_base64)
 
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{imagen_base64}"}},
-                    {"type": "text", "text": PROMPT}
-                ]
-            }],
+            messages=[{"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{imagen_base64}"}},
+                {"type": "text", "text": PROMPT}
+            ]}],
             max_tokens=1024
         )
-
-        texto = response.choices[0].message.content.strip()
-        texto = re.sub(r"```json|```", "", texto).strip()
+        texto    = response.choices[0].message.content.strip()
+        texto    = re.sub(r"```json|```", "", texto).strip()
         resultado = json.loads(texto)
 
-        # Si la imagen no es agrícola, no guardar en DB
         if not resultado.get("valido", True):
             return jsonify(resultado)
 
-        resultado["analisis_id"] = guardar_analisis(session["usuario_id"], resultado)
+        filename = f"{session['usuario_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
+        filepath = os.path.join("static", "uploads", filename)
+        with open(filepath, "wb") as f:
+            f.write(imagen_bytes)
+
+        resultado["imagen_path"]  = f"uploads/{filename}"
+        resultado["analisis_id"]  = guardar_analisis(session["usuario_id"], resultado,
+                                                      imagen_path=resultado["imagen_path"])
         return jsonify(resultado)
 
     except json.JSONDecodeError:
@@ -132,13 +128,11 @@ def analizar():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/historial")
 def historial():
     if "usuario_id" not in session:
         return jsonify({"error": "No has iniciado sesión"}), 401
     return jsonify(obtener_historial(session["usuario_id"]))
-
 
 @app.route("/estadisticas")
 def estadisticas():
@@ -146,6 +140,41 @@ def estadisticas():
         return jsonify({"error": "No has iniciado sesión"}), 401
     return jsonify(obtener_estadisticas(session["usuario_id"]))
 
+# ── Rutas Admin ───────────────────────────────────────────────────
+
+@app.route("/admin/usuarios")
+@requiere_admin
+def admin_usuarios():
+    return jsonify(obtener_todos_usuarios())
+
+@app.route("/admin/usuarios", methods=["POST"])
+@requiere_admin
+def admin_agregar_usuario():
+    data   = request.get_json()
+    nombre = data.get("nombre", "").strip()
+    clave  = data.get("clave", "").strip()
+    rol    = data.get("rol", "agricultor")
+    if not nombre or not clave:
+        return jsonify({"error": "Nombre y clave son requeridos"}), 400
+    if len(clave) != 8 or not clave.isdigit():
+        return jsonify({"error": "La clave debe tener exactamente 8 dígitos"}), 400
+    resultado = agregar_usuario(nombre, clave, rol)
+    if resultado["ok"]:
+        return jsonify({"mensaje": f"Usuario {nombre} creado correctamente"})
+    return jsonify({"error": "La clave ya está registrada"}), 409
+
+@app.route("/admin/usuarios/<int:uid>", methods=["DELETE"])
+@requiere_admin
+def admin_eliminar_usuario(uid):
+    if uid == session["usuario_id"]:
+        return jsonify({"error": "No puedes eliminarte a ti mismo"}), 400
+    eliminar_usuario(uid)
+    return jsonify({"mensaje": "Usuario eliminado"})
+
+@app.route("/admin/estadisticas")
+@requiere_admin
+def admin_estadisticas():
+    return jsonify(obtener_estadisticas_globales())
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
