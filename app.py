@@ -1,3 +1,20 @@
+"""
+app.py — AgroScan backend (Flask)
+
+Punto de entrada de la aplicación. Expone:
+  - Autenticación por clave de acceso (sesiones de Flask).
+  - El endpoint /analizar, que recibe una imagen en base64, la envía a la
+    IA de visión (Groq · Llama 4 Scout) y persiste el resultado en SQLite.
+  - Endpoints de lectura para historial y estadísticas del usuario logueado.
+  - Endpoints /admin/* protegidos por rol, para gestión de usuarios y
+    estadísticas globales de la plataforma.
+
+El acceso a datos vive en database.py; este archivo no ejecuta SQL
+directamente. Ver ARCHITECTURE.md para el flujo completo request → IA → DB.
+
+Última actualización: 2026-06-18 (ver CHANGELOG.md → [0.4.0])
+"""
+
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -87,12 +104,25 @@ def logout():
 
 @app.route("/analizar", methods=["POST"])
 def analizar():
+    """
+    Recibe una imagen en base64, la envía a la IA de visión y devuelve el
+    diagnóstico en JSON.
+
+    Flujo:
+      1. La IA decide primero si la imagen es agrícola (campo "valido").
+         Si no lo es, se devuelve tal cual y NO se guarda nada en la BD.
+      2. Si es válida, se guarda la imagen en static/uploads/ y el
+         resultado completo en la tabla `analisis`, ligado al usuario
+         de la sesión actual.
+    """
     if "usuario_id" not in session:
         return jsonify({"error": "No has iniciado sesión"}), 401
     data = request.get_json()
     if not data or "imagen" not in data:
         return jsonify({"error": "No se recibió ninguna imagen"}), 400
     try:
+        # El frontend envía un data URL (data:image/jpeg;base64,xxxx);
+        # solo nos interesa la parte posterior a la coma.
         imagen_base64 = data["imagen"]
         if "," in imagen_base64:
             imagen_base64 = imagen_base64.split(",")[1]
@@ -106,13 +136,19 @@ def analizar():
             ]}],
             max_tokens=1024
         )
+
+        # La IA a veces envuelve el JSON en ```json ... ``` pese a la
+        # instrucción del prompt; se limpia antes de parsear.
         texto    = response.choices[0].message.content.strip()
         texto    = re.sub(r"```json|```", "", texto).strip()
         resultado = json.loads(texto)
 
+        # Imagen no agrícola: no se persiste nada, se informa al frontend.
         if not resultado.get("valido", True):
             return jsonify(resultado)
 
+        # Imagen válida: se guarda en disco con nombre único
+        # (usuario + timestamp + hash corto) para evitar colisiones.
         filename = f"{session['usuario_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
         filepath = os.path.join("static", "uploads", filename)
         with open(filepath, "wb") as f:
@@ -124,6 +160,7 @@ def analizar():
         return jsonify(resultado)
 
     except json.JSONDecodeError:
+        # La IA no devolvió JSON válido (raro, pero puede pasar).
         return jsonify({"error": "La IA no devolvió un formato válido. Intenta de nuevo."}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500

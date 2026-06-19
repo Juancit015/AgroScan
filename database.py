@@ -1,3 +1,22 @@
+"""
+database.py — Capa de acceso a datos de AgroScan (SQLite)
+
+Encapsula toda la interacción con agroscan.db. Ninguna otra parte del
+proyecto ejecuta SQL directamente: app.py solo llama a las funciones
+públicas definidas aquí (buscar_usuario_por_dni, guardar_analisis,
+obtener_historial, etc.).
+
+Tablas:
+  - usuarios  (id, nombre, dni, rol)        rol ∈ {"agricultor", "admin"}
+  - analisis  (resultado de cada diagnóstico, FK a usuarios.id)
+
+inicializar_db() crea las tablas si no existen, aplica migraciones simples
+(ALTER TABLE ... ADD COLUMN envuelto en try/except) y siembra 3 usuarios de
+ejemplo la primera vez que se ejecuta. Es seguro llamarla en cada arranque.
+
+Última actualización: 2026-06-18 (ver CHANGELOG.md → [0.4.0])
+"""
+
 import sqlite3, json
 from datetime import datetime, timedelta
 

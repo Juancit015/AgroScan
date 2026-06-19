@@ -1,20 +1,17 @@
+# Secretos — nunca subir la API key
+.env
+
+# Base de datos local (se regenera sola al arrancar app.py)
+agroscan.db
+
+# Imágenes analizadas por los usuarios
+static/uploads/*
+!static/uploads/.gitkeep
+
 # Python
 __pycache__/
-*.py[cod]
-*.db
-*.sqlite3
-*.log
-.venv/
-venv/
-env/
+*.pyc
 
-# IDE
+# Editores / SO
 .vscode/
-.idea/
-
-# Sistema
 .DS_Store
-Thumbs.db
-
-# Variables de entorno
-.env
