@@ -6,29 +6,214 @@
 }
 body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--texto);min-height:100vh;}
 
-/* ── Toast ── */
-#toast-container{position:fixed;top:72px;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;}
-.toast{padding:.75rem 1.25rem;border-radius:10px;font-size:.85rem;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.15);display:flex;align-items:center;gap:.6rem;min-width:260px;animation:slideIn .3s ease;}
-.toast.success{background:#DCFCE7;color:#166534;border-left:4px solid var(--success);}
-.toast.error  {background:#FEE2E2;color:#991B1B;border-left:4px solid var(--error);}
-.toast.info   {background:#EFF6FF;color:#1E40AF;border-left:4px solid #3B82F6;}
-@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
-@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(120%);opacity:0}}
+/* ── Sistema de notificaciones (toast) ──────────────────────────────
+   Estilo "logro desbloqueado": ícono circular + título + descripción,
+   entrada deslizante desde la esquina, barra de progreso de auto-cierre,
+   y botón para cerrar manualmente. Reutilizable en toda la plataforma
+   mediante mostrarToast(tipo, titulo, descripcion) — ver index.js. */
+#toast-container{
+  position:fixed;
+  top:78px;
+  right:1.25rem;
+  z-index:999;
+  display:flex;
+  flex-direction:column;
+  gap:.65rem;
+  max-width:min(360px,calc(100vw - 2.5rem));
+  pointer-events:none;
+}
 
-/* ── Navbar ── */
-.navbar{background:var(--verde-profundo);padding:0 2rem;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.15);}
-.nav-logo{display:flex;align-items:center;gap:.6rem;}
+.toast{
+  pointer-events:auto;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  align-items:flex-start;
+  gap:.75rem;
+  background:#fff;
+  border-radius:14px;
+  padding:.85rem 1rem .9rem 1rem;
+  box-shadow:0 10px 32px rgba(27,67,50,.18),0 2px 8px rgba(0,0,0,.06);
+  border-left:4px solid var(--verde-claro);
+  animation:toastIn .35s cubic-bezier(.34,1.56,.64,1);
+}
+.toast.saliendo{animation:toastOut .25s ease forwards;}
+
+.toast-icono{
+  flex-shrink:0;
+  width:34px;height:34px;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.05rem;
+  background:rgba(82,183,136,.15);
+}
+.toast-cuerpo{flex:1;min-width:0;}
+.toast-titulo{font-family:'Syne',sans-serif;font-weight:800;font-size:.88rem;color:var(--texto);line-height:1.3;}
+.toast-descripcion{font-size:.8rem;color:var(--texto-suave);line-height:1.4;margin-top:.15rem;}
+.toast-cerrar{
+  flex-shrink:0;
+  background:none;border:none;cursor:pointer;
+  color:var(--gris-medio);
+  width:22px;height:22px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  transition:background .15s,color .15s;
+  font-size:1rem;line-height:1;
+  padding:0;
+}
+.toast-cerrar:hover{background:var(--gris-suave);color:var(--texto);}
+
+.toast-progreso{
+  position:absolute;
+  bottom:0;left:0;
+  height:3px;
+  background:var(--verde-claro);
+  animation-name:toastProgreso;
+  animation-timing-function:linear;
+  animation-fill-mode:forwards;
+}
+
+/* Variantes por tipo: cambia el borde, el fondo del ícono y la barra */
+.toast.success{border-left-color:var(--success);}
+.toast.success .toast-icono{background:rgba(22,163,74,.12);}
+.toast.success .toast-progreso{background:var(--success);}
+
+.toast.error{border-left-color:var(--error);}
+.toast.error .toast-icono{background:rgba(220,38,38,.1);}
+.toast.error .toast-progreso{background:var(--error);}
+
+.toast.warning{border-left-color:var(--warning);}
+.toast.warning .toast-icono{background:rgba(217,119,6,.12);}
+.toast.warning .toast-progreso{background:var(--warning);}
+
+.toast.info{border-left-color:#3B82F6;}
+.toast.info .toast-icono{background:rgba(59,130,246,.12);}
+.toast.info .toast-progreso{background:#3B82F6;}
+
+@keyframes toastIn{from{transform:translateX(120%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes toastOut{from{transform:translateX(0);opacity:1;max-height:200px;}to{transform:translateX(120%);opacity:0;max-height:0;margin:0;padding:0;}}
+@keyframes toastProgreso{from{width:100%;}to{width:0%;}}
+
+@media(max-width:480px){
+  #toast-container{top:70px;right:.75rem;left:.75rem;max-width:none;}
+}
+
+/* ── Navbar (escritorio) ──────────────────────────────────────────
+   Siempre visible y fluida: usa flex-wrap + tamaños con clamp() para
+   reorganizarse sola al reducir el ancho, sin colapsar nunca a un menú
+   hamburguesa por encima del breakpoint móvil. */
+.navbar{
+  background:var(--verde-profundo);
+  padding:.55rem clamp(1rem,3vw,2rem);
+  min-height:60px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:.5rem 1rem;
+  position:sticky;
+  top:0;
+  z-index:100;
+  box-shadow:0 2px 12px rgba(0,0,0,.15);
+}
+.nav-logo{display:flex;align-items:center;gap:.6rem;flex-shrink:0;}
 .logo-icon{font-size:1.3rem;}
+.logo-img{height:28px;width:auto;max-width:120px;object-fit:contain;display:block;}
 .logo-text{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;color:#fff;}
 .logo-text span{color:var(--tierra);}
-.nav-links{display:flex;gap:.3rem;}
-.nav-link{color:rgba(255,255,255,.6);text-decoration:none;font-size:.82rem;font-weight:500;padding:.4rem .8rem;border-radius:8px;transition:all .2s;}
-.nav-link:hover{color:#fff;background:rgba(255,255,255,.08);}
-.nav-link.active{color:#fff;background:rgba(255,255,255,.12);}
-.nav-usuario{display:flex;align-items:center;gap:.75rem;}
-.usuario-nombre{color:rgba(255,255,255,.7);font-size:.82rem;}
-.btn-logout{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:.35rem .8rem;border-radius:6px;font-size:.8rem;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;}
-.btn-logout:hover{background:rgba(255,255,255,.2);color:#fff;}
+
+.nav-links-desktop{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;flex:1 1 auto;justify-content:center;}
+.nav-link{
+  color:rgba(255,255,255,.82);
+  text-decoration:none;
+  font-size:.92rem;
+  font-weight:600;
+  padding:.5rem 1rem;
+  border-radius:8px;
+  transition:background .2s,color .2s,transform .15s;
+  white-space:nowrap;
+  letter-spacing:.1px;
+}
+.nav-link:hover{color:#fff;background:rgba(255,255,255,.12);}
+.nav-link:active{transform:scale(.97);}
+.nav-link.active{color:#fff;background:var(--verde-claro);box-shadow:0 2px 8px rgba(82,183,136,.35);}
+
+.nav-usuario{display:flex;align-items:center;gap:.85rem;flex-shrink:0;}
+.usuario-nombre{color:rgba(255,255,255,.75);font-size:.85rem;white-space:nowrap;}
+
+/* ── Avatar de perfil ──────────────────────────────────────────────
+   Siempre circular. Si el usuario no tiene foto, muestra sus iniciales
+   sobre un fondo de la paleta de marca (estilo GitHub/Discord/Slack).
+   Al pasar el cursor (o al tocar en móvil) aparece un overlay con un
+   lápiz que indica que es clicable para cambiar la foto. */
+.avatar-btn{
+  position:relative;
+  width:38px;height:38px;
+  border-radius:50%;
+  flex-shrink:0;
+  border:2px solid rgba(255,255,255,.35);
+  background:var(--verde-claro);
+  cursor:pointer;
+  padding:0;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .2s,transform .15s;
+}
+.avatar-btn:hover{border-color:#fff;transform:scale(1.04);}
+.avatar-btn:active{transform:scale(.97);}
+
+.avatar-img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+
+.avatar-iniciales{
+  font-family:'Syne',sans-serif;
+  font-weight:800;
+  font-size:.95rem;
+  color:#fff;
+}
+
+.avatar-editar{
+  position:absolute;
+  inset:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(27,67,50,.55);
+  color:#fff;
+  font-size:.8rem;
+  opacity:0;
+  transition:opacity .2s;
+  border-radius:50%;
+}
+.avatar-btn:hover .avatar-editar{opacity:1;}
+
+/* En el drawer móvil el avatar es un poco más grande, ya que ahí no hay
+   :hover real y conviene que se note más que es interactivo */
+.avatar-btn-movil{width:46px;height:46px;}
+
+/* Botón Salir — rediseñado: más presencia, ícono, estados claros */
+.btn-logout{
+  display:flex;
+  align-items:center;
+  gap:.45rem;
+  background:rgba(255,255,255,.1);
+  border:1.5px solid rgba(255,255,255,.25);
+  color:#fff;
+  padding:.5rem 1.1rem;
+  border-radius:99px;
+  font-size:.84rem;
+  font-weight:600;
+  cursor:pointer;
+  font-family:'Inter',sans-serif;
+  transition:background .2s,border-color .2s,transform .15s;
+}
+.btn-logout:hover{background:#fff;color:var(--verde-profundo);border-color:#fff;}
+.btn-logout:active{transform:scale(.96);}
+.btn-logout svg{flex-shrink:0;}
+
+/* Botón hamburguesa — oculto por completo en escritorio */
+.nav-toggle{display:none;}
+
+/* ── Drawer móvil ── */
+.nav-overlay{display:none;}
+.nav-usuario-movil-info{display:none;}
 
 /* ── Main ── */
 .main{max-width:1200px;margin:0 auto;padding:2rem 1.5rem;}
@@ -54,15 +239,16 @@ body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--texto);m
 .analizando-overlay{position:absolute;inset:0;background:rgba(27,67,50,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;color:#fff;font-size:.95rem;font-weight:500;}
 .pulse-ring{width:60px;height:60px;border:3px solid var(--verde-claro);border-radius:50%;animation:pulse 1.2s ease-in-out infinite;}
 @keyframes pulse{0%{transform:scale(.8);opacity:1}100%{transform:scale(1.4);opacity:0}}
-.camara-controles{display:flex;gap:.75rem;}
-.btn-principal{flex:1;padding:.75rem;background:var(--verde-profundo);color:#fff;border:none;border-radius:10px;font-size:.9rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:background .2s;}
+.camara-controles{display:flex;gap:.75rem;margin-bottom:.75rem;}
+.btn-principal{flex:1;padding:.75rem;background:var(--verde-profundo);color:#fff;border:none;border-radius:10px;font-size:.9rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:background .2s;text-align:center;display:flex;align-items:center;justify-content:center;}
 .btn-principal:hover:not(:disabled){background:var(--verde-medio);}
 .btn-principal:disabled{opacity:.4;cursor:not-allowed;}
-.btn-secundario{flex:1;padding:.75rem;background:transparent;color:var(--verde-profundo);border:2px solid var(--gris-suave);border-radius:10px;font-size:.9rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;}
+.btn-secundario{flex:1;padding:.75rem;background:transparent;color:var(--verde-profundo);border:2px solid var(--gris-suave);border-radius:10px;font-size:.9rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;text-align:center;display:flex;align-items:center;justify-content:center;}
 .btn-secundario:hover{border-color:var(--verde-claro);color:var(--verde-medio);}
-.upload-alt{display:flex;align-items:center;gap:.75rem;margin-top:.75rem;color:var(--texto-suave);font-size:.82rem;}
+.btn-captura{width:100%;}
+.upload-alt{display:flex;align-items:center;justify-content:center;gap:.6rem;margin-top:.25rem;color:var(--texto-suave);font-size:.82rem;}
 .upload-alt span{color:var(--gris-medio);}
-.btn-upload{color:var(--verde-medio);font-weight:600;cursor:pointer;font-size:.82rem;text-decoration:underline;text-underline-offset:3px;}
+.btn-upload{color:var(--verde-medio);font-weight:600;cursor:pointer;font-size:.82rem;text-decoration:underline;text-underline-offset:3px;background:none;border:none;font-family:'Inter',sans-serif;}
 .btn-upload:hover{color:var(--verde-profundo);}
 
 /* ── Resultado ── */
@@ -141,10 +327,11 @@ body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--texto);m
 .alerta-mensaje{font-size:.82rem;color:var(--texto-suave);margin-top:.15rem;}
 
 .dashboard-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;}
-.chart-card{background:#fff;border-radius:16px;padding:1.25rem 1.5rem;box-shadow:0 4px 20px rgba(0,0,0,.06);}
+.chart-card{background:#fff;border-radius:16px;padding:1.4rem 1.6rem;box-shadow:0 4px 20px rgba(27,67,50,.07);border-top:3px solid var(--verde-claro);position:relative;overflow:hidden;}
+.chart-card::before{content:'';position:absolute;top:-30px;right:-30px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,rgba(82,183,136,.08) 0%,transparent 70%);pointer-events:none;}
 .chart-full{margin-bottom:1.25rem;}
-.chart-titulo{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;color:var(--verde-profundo);margin-bottom:1rem;}
-.chart-wrap{position:relative;height:220px;}
+.chart-titulo{font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;color:var(--verde-profundo);margin-bottom:1.1rem;letter-spacing:-.2px;}
+.chart-wrap{position:relative;height:230px;}
 .chart-nota{font-size:.78rem;color:var(--texto-suave);margin-top:.5rem;text-align:center;}
 .confianza-dashboard-wrap{display:flex;align-items:center;gap:1rem;}
 .confianza-track-lg{flex:1;height:14px;}
@@ -167,10 +354,100 @@ body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--texto);m
 
 @media(max-width:768px){
   .analizador-grid,.dashboard-grid-2{grid-template-columns:1fr;}
-  .nav-links{display:none;}
   .navbar{padding:0 1rem;}
   .futuro-grid{grid-template-columns:1fr;}
   .status-bar{gap:.75rem;}
+
+  /* En móvil se oculta la barra horizontal de escritorio y el nombre de
+     usuario del navbar principal (ambos viven dentro del drawer) */
+  .nav-links-desktop{display:none;}
+  .navbar > .nav-usuario{display:none;}
+
+  .nav-toggle{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:5px;
+    width:38px;
+    height:38px;
+    background:rgba(255,255,255,.1);
+    border:1.5px solid rgba(255,255,255,.2);
+    border-radius:8px;
+    cursor:pointer;
+    padding:0;
+    flex-shrink:0;
+  }
+  .nav-toggle span{display:block;width:16px;height:2px;background:#fff;border-radius:2px;margin:0 auto;transition:transform .25s,opacity .25s;}
+  .nav-toggle.abierto span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+  .nav-toggle.abierto span:nth-child(2){opacity:0;}
+  .nav-toggle.abierto span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+
+  /* El overlay cubre toda la pantalla y CONTIENE al drawer — al estar
+     anidados comparten stacking context, así que no hay forma de que el
+     overlay quede "encima" del drawer y bloquee los clics. */
+  .nav-overlay{
+    display:flex;
+    justify-content:flex-end;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0);
+    pointer-events:none;
+    transition:background .28s ease;
+    z-index:200;
+  }
+  .nav-overlay.visible{background:rgba(0,0,0,.5);pointer-events:auto;}
+
+  .nav-links-movil{
+    display:flex;
+    flex-direction:column;
+    gap:.3rem;
+    width:min(80vw,300px);
+    height:100%;
+    background:var(--verde-profundo);
+    padding:4.5rem 1.25rem 1.5rem;
+    box-shadow:-8px 0 28px rgba(0,0,0,.3);
+    transform:translateX(100%);
+    transition:transform .28s ease;
+    overflow-y:auto;
+  }
+  .nav-overlay.visible .nav-links-movil{transform:translateX(0);}
+
+  /* Texto del menú siempre con buen contraste: en touch no existe :hover,
+     así que el color base debe ser legible desde el primer momento. */
+  .nav-links-movil .nav-link{
+    color:rgba(255,255,255,.92);
+    padding:.85rem 1rem;
+    font-size:.95rem;
+    border-radius:10px;
+  }
+  .nav-links-movil .nav-link:active{background:rgba(255,255,255,.15);}
+  .nav-links-movil .nav-link.active{color:#fff;background:var(--verde-claro);}
+
+  .nav-usuario-movil-info{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:.7rem;
+    width:100%;
+    padding-top:1.1rem;
+    margin-top:.6rem;
+    border-top:1px solid rgba(255,255,255,.15);
+  }
+  .nav-usuario-movil-info .usuario-nombre{display:block;color:rgba(255,255,255,.85);font-size:.85rem;}
+  .nav-usuario-movil-info .btn-logout{width:100%;justify-content:center;}
+
+  /* En touch no hay :hover, así que el lápiz de edición se muestra como
+     una insignia fija en la esquina del avatar en lugar de un overlay
+     que solo aparecería al pasar el cursor. */
+  .avatar-btn-movil .avatar-editar{
+    opacity:1;
+    inset:auto;
+    bottom:-2px;right:-2px;
+    width:18px;height:18px;
+    background:var(--tierra);
+    border:2px solid var(--verde-profundo);
+    font-size:.62rem;
+  }
 }
 
 /* ── Historial con imagen ── */
@@ -251,13 +528,26 @@ body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--texto);m
 .admin-form-error { width: 100%; font-size: 0.82rem; color: var(--error); font-weight: 500; }
 
 .admin-usuarios-lista { display: flex; flex-direction: column; gap: 0.75rem; }
-.admin-usuario-row { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 1rem; border-radius: 10px; border: 1px solid var(--gris-suave); transition: background 0.15s; }
+
+/* La row ahora es un contenedor vertical: fila principal + form de edición opcional debajo */
+.admin-usuario-row { display: flex; flex-direction: column; padding: 0.9rem 1rem; border-radius: 10px; border: 1px solid var(--gris-suave); transition: background 0.15s; }
 .admin-usuario-row:hover { background: var(--crema); }
-.admin-usuario-info { display: flex; flex-direction: column; gap: 0.15rem; }
-.admin-usuario-nombre { font-weight: 600; font-size: 0.95rem; color: var(--texto); }
+
+.admin-usuario-fila { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.admin-usuario-info { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.admin-usuario-nombre { font-weight: 600; font-size: 0.95rem; color: var(--texto); overflow-wrap: anywhere; }
 .admin-usuario-meta { font-size: 0.78rem; color: var(--texto-suave); }
-.admin-usuario-rol { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.6rem; border-radius: 99px; }
+.admin-usuario-rol { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.6rem; border-radius: 99px; white-space: nowrap; }
 .rol-admin      { background: rgba(200,169,110,0.15); color: #92400E; }
 .rol-agricultor { background: rgba(82,183,136,0.12); color: var(--verde-medio); }
+
+.btn-editar { background: transparent; border: 1px solid var(--gris-suave); color: var(--verde-medio); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+.btn-editar:hover { background: var(--verde-claro); border-color: var(--verde-claro); color: #fff; }
+
 .btn-eliminar { background: transparent; border: 1px solid #FCA5A5; color: var(--error); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
 .btn-eliminar:hover { background: var(--error); color: #fff; }
+
+/* Form de edición inline — mismo lenguaje visual que .admin-form pero anidado dentro de la row */
+.admin-edit-form { flex-direction: column; gap: 0.6rem; background: var(--crema); border-radius: 8px; padding: 1rem; margin-top: 0.85rem; }
+.admin-edit-form .admin-input { width: 100%; }
+.admin-edit-form .admin-form-btns { width: 100%; }

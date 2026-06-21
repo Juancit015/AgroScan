@@ -1,16 +1,53 @@
+// ── Sistema de notificaciones (toast) ───────────────────────────────
+// Reutilizable en toda la plataforma: mostrarToast('success'|'error'|
+// 'warning'|'info', 'Título', 'Descripción opcional', duraciónMs).
+// Estilo "logro desbloqueado": entra deslizando desde la esquina, barra
+// de progreso de auto-cierre, y botón para cerrar manualmente.
+const TOAST_ICONOS = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+const toastContainer = document.getElementById('toast-container');
+
+function mostrarToast(tipo, titulo, descripcion = '', duracionMs = 5000) {
+  if (!toastContainer) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${tipo}`;
+  toast.innerHTML = `
+    <div class="toast-icono">${TOAST_ICONOS[tipo] || 'ℹ️'}</div>
+    <div class="toast-cuerpo">
+      <div class="toast-titulo">${escaparHtml(titulo)}</div>
+      ${descripcion ? `<div class="toast-descripcion">${escaparHtml(descripcion)}</div>` : ''}
+    </div>
+    <button class="toast-cerrar" type="button" aria-label="Cerrar notificación">✕</button>
+    <div class="toast-progreso" style="animation-duration:${duracionMs}ms"></div>
+  `;
+
+  const cerrar = () => {
+    toast.classList.add('saliendo');
+    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+  };
+
+  toast.querySelector('.toast-cerrar').addEventListener('click', cerrar);
+  const temporizador = setTimeout(cerrar, duracionMs);
+  // Pausar el auto-cierre mientras el usuario tiene el cursor encima
+  toast.addEventListener('mouseenter', () => clearTimeout(temporizador));
+
+  toastContainer.appendChild(toast);
+}
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto;
+  return div.innerHTML;
+}
+
 // ── Referencias DOM ──────────────────────────────────────────────
-const video        = document.getElementById('video');
-const canvas       = document.getElementById('canvas');
 const preview      = document.getElementById('preview');
 const placeholder  = document.getElementById('placeholder');
 const overlay      = document.getElementById('overlay');
 const zonaOverlay  = document.getElementById('zona-overlay');
 const zonaDescDiv  = document.getElementById('zona-descripcion');
 const zonaDescText = document.getElementById('zona-desc-texto');
-const btnCamara    = document.getElementById('btn-camara');
-const btnFoto      = document.getElementById('btn-foto');
 const btnReiniciar = document.getElementById('btn-reiniciar');
-const inputArchivo = document.getElementById('input-archivo');
 const btnLogout    = document.getElementById('btn-logout');
 
 let chartEstado = null, chartEnfermedades = null, chartCultivos = null, chartActividad = null;
@@ -54,92 +91,181 @@ const emptyStatePlugin = {
 };
 Chart.register(emptyStatePlugin);
 
+// ── Menú hamburguesa (móvil) ───────────────────────────────────────
+const navToggle  = document.getElementById('nav-toggle');
+const navOverlay = document.getElementById('nav-overlay');
+
+function abrirMenuMovil() {
+  navToggle.classList.add('abierto');
+  navOverlay.classList.add('visible');
+}
+function cerrarMenuMovil() {
+  navToggle.classList.remove('abierto');
+  navOverlay.classList.remove('visible');
+}
+
+navToggle.addEventListener('click', () => {
+  navOverlay.classList.contains('visible') ? cerrarMenuMovil() : abrirMenuMovil();
+});
+// Clic en el fondo oscuro (fuera del panel) cierra el menú; el panel en sí
+// detiene la propagación (ver onclick inline en el HTML) para que tocar
+// un link o el botón Salir no cierre el drawer antes de procesar la acción.
+navOverlay.addEventListener('click', cerrarMenuMovil);
+
 // ── Navegación ───────────────────────────────────────────────────
+// Selecciona los links de AMBAS barras (escritorio + drawer móvil), ya
+// que comparten la clase .nav-link; así el estado "activa" queda
+// sincronizado sin importar desde cuál se haya navegado.
 document.querySelectorAll('.nav-link').forEach(link => {
   link.addEventListener('click', e => {
     e.preventDefault();
     const sec = link.dataset.section;
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll(`.nav-link[data-section="${sec}"]`).forEach(l => l.classList.add('active'));
     document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
-    link.classList.add('active');
     document.getElementById(`sec-${sec}`).classList.add('activa');
     if (sec === 'historial') cargarHistorial();
     if (sec === 'dashboard') cargarDashboard();
     if (sec === 'admin') cargarAdmin();
+    cerrarMenuMovil();
   });
 });
 
 // ── Logout ───────────────────────────────────────────────────────
-btnLogout.addEventListener('click', async () => {
+async function cerrarSesion() {
   await fetch('/logout');
   window.location.href = '/';
+}
+btnLogout.addEventListener('click', cerrarSesion);
+document.getElementById('btn-logout-movil')?.addEventListener('click', cerrarSesion);
+
+// ── Avatar de perfil ─────────────────────────────────────────────
+// Un único <input type="file"> compartido por los dos botones de avatar
+// (navbar de escritorio y drawer móvil). Al elegir una imagen se sube
+// con FormData (es un archivo binario, no JSON) y, si el servidor la
+// acepta, se reemplaza la vista previa en AMBOS botones al instante.
+const inputAvatar = document.getElementById('input-avatar');
+
+document.getElementById('avatar-btn-desktop')?.addEventListener('click', () => inputAvatar.click());
+document.getElementById('avatar-btn-movil')?.addEventListener('click', () => inputAvatar.click());
+
+inputAvatar.addEventListener('change', async () => {
+  const file = inputAvatar.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  try {
+    const res  = await fetch('/perfil/avatar', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!res.ok) {
+      mostrarToast('error', 'No se pudo actualizar la foto', data.error || 'Intenta con otra imagen.');
+      return;
+    }
+
+    // Vista previa inmediata en ambos avatares sin recargar la página
+    const urlNueva = `/static/${data.avatar_path}?t=${Date.now()}`; // cache-bust
+    ['avatar-btn-desktop', 'avatar-btn-movil'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.querySelector('.avatar-iniciales')?.remove();
+      let img = btn.querySelector('.avatar-img');
+      if (!img) {
+        img = document.createElement('img');
+        img.className = 'avatar-img';
+        img.alt = 'Foto de perfil';
+        btn.prepend(img);
+      }
+      img.src = urlNueva;
+    });
+
+    mostrarToast('success', 'Foto de perfil actualizada', 'Tu nueva imagen ya está visible.');
+  } catch {
+    mostrarToast('error', 'Error de conexión', 'No se pudo subir la imagen.');
+  } finally {
+    inputAvatar.value = '';
+  }
 });
 
-// ── Cámara ───────────────────────────────────────────────────────
-let stream = null;
+// ── Captura de imagen ────────────────────────────────────────────
+// En móvil, "Tomar foto" abre directo la cámara nativa vía input[capture]
+// (funciona sin HTTPS, ver ajustes previos). En PC, antes de abrir nada,
+// se verifica si existe una cámara física conectada; si no la hay, se
+// avisa con un toast claro en vez de dejar que el navegador abra un
+// selector confuso o falle en silencio.
+const inputCamara   = document.getElementById('input-camara');
+const inputGaleria  = document.getElementById('input-galeria');
+const btnTomarFoto  = document.getElementById('btn-tomar-foto');
 
-btnCamara.addEventListener('click', activarCamara);
+const esMovil = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
-async function activarCamara() {
+btnTomarFoto.addEventListener('click', async () => {
+  if (esMovil) {
+    inputCamara.click();
+    return;
+  }
+  await abrirCamaraEscritorio();
+});
+
+async function abrirCamaraEscritorio() {
+  // enumerateDevices() no requiere permiso previo para LISTAR dispositivos,
+  // solo para ver sus etiquetas — nos basta con saber si existe al menos
+  // un videoinput para decidir si tiene sentido abrir el selector.
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    // Navegador muy antiguo sin soporte: dejamos que el input intente igual.
+    inputCamara.click();
+    return;
+  }
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    video.srcObject = stream;
-    video.style.display       = 'block';
-    placeholder.style.display = 'none';
-    btnFoto.disabled          = false;
-    btnCamara.style.display   = 'none';
+    const dispositivos = await navigator.mediaDevices.enumerateDevices();
+    const hayCamara = dispositivos.some(d => d.kind === 'videoinput');
+    if (hayCamara) {
+      inputCamara.click();
+    } else {
+      mostrarToast(
+        'warning',
+        'No se detectó ninguna cámara',
+        'Conecta una webcam o selecciona una imagen desde tu equipo con el botón "Galería".'
+      );
+    }
   } catch {
-    alert('No se pudo acceder a la cámara. Verifica los permisos del navegador.');
+    // Si la detección falla por cualquier motivo, no bloqueamos al
+    // usuario: dejamos que el navegador decida qué mostrar.
+    inputCamara.click();
   }
 }
 
-btnFoto.addEventListener('click', () => {
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  const b64 = canvas.toDataURL('image/jpeg', 0.9);
-  preview.src = b64;
-  preview.style.display = 'block';
-  video.style.display   = 'none';
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  btnFoto.style.display      = 'none';
-  btnReiniciar.style.display = 'block';
-  analizarImagen(b64);
-});
-
-inputArchivo.addEventListener('change', e => {
-  const file = e.target.files[0];
+function manejarArchivoSeleccionado(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     const b64 = ev.target.result;
     preview.src = b64;
-    preview.style.display     = 'block';
-    video.style.display       = 'none';
-    placeholder.style.display = 'none';
-    btnFoto.style.display     = 'none';
-    btnCamara.style.display   = 'none';
+    preview.style.display      = 'block';
+    placeholder.style.display  = 'none';
     btnReiniciar.style.display = 'block';
     analizarImagen(b64);
   };
   reader.readAsDataURL(file);
-});
+}
+
+inputCamara.addEventListener('change', e  => manejarArchivoSeleccionado(e.target.files[0]));
+inputGaleria.addEventListener('change', e => manejarArchivoSeleccionado(e.target.files[0]));
 
 btnReiniciar.addEventListener('click', reiniciar);
 
 function reiniciar() {
   preview.style.display      = 'none';
-  video.style.display        = 'none';
   placeholder.style.display  = 'flex';
   overlay.style.display      = 'none';
   zonaOverlay.style.display  = 'none';
   zonaDescDiv.style.display  = 'none';
-  btnCamara.style.display    = 'block';
-  btnFoto.style.display      = 'block';
   btnReiniciar.style.display = 'none';
-  btnFoto.disabled = true;
   mostrarEstadoVacio();
-  inputArchivo.value = '';
+  inputCamara.value  = '';
+  inputGaleria.value = '';
 }
 
 // ── Analizar imagen ──────────────────────────────────────────────
@@ -162,6 +288,7 @@ async function analizarImagen(b64) {
     if (data.valido === false) { mostrarInvalido(); return; }
 
     mostrarResultado(data);
+    cargarEstadoSistema(); // refresca "última respuesta" y total de análisis
   } catch {
     overlay.style.display = 'none';
     mostrarError('Error de conexión con el servidor.');
@@ -265,6 +392,7 @@ function mostrarError(msg)    {
   ocultarTodos();
   document.getElementById('resultado-error').style.display = 'flex';
   document.getElementById('error-texto').textContent = msg;
+  mostrarToast('error', 'No se pudo analizar', msg);
 }
 
 // ── Historial ────────────────────────────────────────────────────
@@ -482,20 +610,69 @@ async function cargarAdminUsuarios() {
 
     lista.innerHTML = users.map(u => `
       <div class="admin-usuario-row" id="user-row-${u.id}">
-        <div class="admin-usuario-info">
-          <div class="admin-usuario-nombre">${u.nombre}</div>
-          <div class="admin-usuario-meta">
-            ${u.total_analisis} análisis
-            ${u.ultimo_analisis ? '· último: ' + formatearFecha(u.ultimo_analisis) : '· sin análisis'}
+        <div class="admin-usuario-fila">
+          <div class="admin-usuario-info">
+            <div class="admin-usuario-nombre">${escaparHtml(u.nombre)}</div>
+            <div class="admin-usuario-meta">
+              ${u.total_analisis} análisis
+              ${u.ultimo_analisis ? '· último: ' + formatearFecha(u.ultimo_analisis) : '· sin análisis'}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span class="admin-usuario-rol rol-${u.rol}">${u.rol === 'admin' ? '⚙️ Admin' : '🌱 Agricultor'}</span>
+            <button class="btn-editar" data-uid="${u.id}" onclick="toggleEditarUsuario(${u.id})">Editar</button>
+            <button class="btn-eliminar" data-uid="${u.id}" data-nombre="${escaparHtml(u.nombre)}" onclick="eliminarUsuario(${u.id}, this.dataset.nombre)">Eliminar</button>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:0.75rem;">
-          <span class="admin-usuario-rol rol-${u.rol}">${u.rol === 'admin' ? '⚙️ Admin' : '🌱 Agricultor'}</span>
-          <button class="btn-eliminar" onclick="eliminarUsuario(${u.id}, '${u.nombre}')">Eliminar</button>
+
+        <!-- Form de edición inline, oculto por defecto -->
+        <div class="admin-edit-form" id="edit-form-${u.id}" style="display:none;">
+          <input type="text" id="edit-nombre-${u.id}" value="${escaparHtml(u.nombre)}" maxlength="30" class="admin-input" placeholder="Nombre completo"/>
+          <input type="text" id="edit-clave-${u.id}" placeholder="Nueva clave (opcional, 8 dígitos)" maxlength="8" inputmode="numeric" class="admin-input"/>
+          <div class="admin-form-btns">
+            <button class="btn-principal btn-sm" onclick="guardarEdicionUsuario(${u.id})">Guardar cambios</button>
+            <button class="btn-secundario btn-sm" onclick="toggleEditarUsuario(${u.id})">Cancelar</button>
+          </div>
+          <p class="admin-form-error" id="edit-error-${u.id}" style="display:none;"></p>
         </div>
       </div>
     `).join('');
   } catch { lista.innerHTML = '<div class="cargando">Error al cargar usuarios.</div>'; }
+}
+
+function toggleEditarUsuario(uid) {
+  const form = document.getElementById(`edit-form-${uid}`);
+  const yaAbierto = form.style.display !== 'none';
+  // Cierra cualquier otro formulario de edición abierto
+  document.querySelectorAll('.admin-edit-form').forEach(f => f.style.display = 'none');
+  form.style.display = yaAbierto ? 'none' : 'flex';
+  if (!yaAbierto) document.getElementById(`edit-nombre-${uid}`)?.focus();
+}
+
+async function guardarEdicionUsuario(uid) {
+  const nombre  = document.getElementById(`edit-nombre-${uid}`).value.trim();
+  const clave   = document.getElementById(`edit-clave-${uid}`).value.trim();
+  const errEl   = document.getElementById(`edit-error-${uid}`);
+  errEl.style.display = 'none';
+
+  if (!nombre) { errEl.textContent = 'El nombre no puede estar vacío.'; errEl.style.display = 'block'; return; }
+  if (nombre.length > 30) { errEl.textContent = 'El nombre no puede superar 30 caracteres.'; errEl.style.display = 'block'; return; }
+  if (clave && clave.length !== 8) { errEl.textContent = 'La clave debe tener exactamente 8 dígitos.'; errEl.style.display = 'block'; return; }
+
+  const payload = { nombre };
+  if (clave) payload.clave = clave;
+
+  try {
+    const res  = await fetch(`/admin/usuarios/${uid}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error; errEl.style.display = 'block'; return; }
+    cargarAdminUsuarios();
+    mostrarToast('success', 'Usuario actualizado', `Los datos de ${nombre} se guardaron correctamente.`);
+  } catch { errEl.textContent = 'Error de conexión.'; errEl.style.display = 'block'; }
 }
 
 async function guardarUsuario() {
@@ -507,6 +684,7 @@ async function guardarUsuario() {
   errEl.style.display = 'none';
 
   if (!nombre || !clave) { mostrarErrorAdmin('Completa todos los campos.'); return; }
+  if (nombre.length > 30) { mostrarErrorAdmin('El nombre no puede superar 30 caracteres.'); return; }
   if (clave.length !== 8) { mostrarErrorAdmin('La clave debe tener exactamente 8 dígitos.'); return; }
 
   try {
@@ -522,6 +700,7 @@ async function guardarUsuario() {
     document.getElementById('btn-nuevo-usuario').style.display = 'block';
     limpiarFormAdmin();
     cargarAdminUsuarios();
+    mostrarToast('success', 'Usuario creado', `${nombre} ya puede acceder a la plataforma.`);
   } catch { mostrarErrorAdmin('Error de conexión.'); }
 }
 
@@ -533,10 +712,11 @@ async function eliminarUsuario(uid, nombre) {
     if (res.ok) {
       document.getElementById(`user-row-${uid}`)?.remove();
       cargarAdminStats();
+      mostrarToast('success', 'Usuario eliminado', `${nombre} y su historial fueron eliminados.`);
     } else {
-      alert(data.error);
+      mostrarToast('error', 'No se pudo eliminar', data.error);
     }
-  } catch { alert('Error al eliminar.'); }
+  } catch { mostrarToast('error', 'Error de conexión', 'No se pudo eliminar el usuario.'); }
 }
 
 function mostrarErrorAdmin(msg) {
@@ -551,3 +731,29 @@ function limpiarFormAdmin() {
   document.getElementById('form-rol').value    = 'agricultor';
   document.getElementById('admin-form-error').style.display = 'none';
 }
+
+// ── Estado del sistema (widget en la sección Analizar) ─────────────
+async function cargarEstadoSistema() {
+  const stStatus = document.getElementById('st-status');
+  const stModelo = document.getElementById('st-modelo');
+  const stTiempo = document.getElementById('st-tiempo');
+  const stTotal  = document.getElementById('st-total');
+  if (!stStatus) return; // el widget no está en esta vista
+
+  try {
+    const res  = await fetch('/estado');
+    const data = await res.json();
+    if (!res.ok) { stStatus.textContent = 'No disponible'; return; }
+
+    stStatus.textContent = data.online ? 'IA Online' : 'IA sin configurar';
+    document.querySelector('#status-bar .status-dot')?.classList.toggle('online', data.online);
+
+    stModelo.textContent = data.modelo || '—';
+    stTiempo.textContent = data.ultimo_tiempo_s ? `${data.ultimo_tiempo_s}s` : 'Sin datos aún';
+    stTotal.textContent  = data.total_analisis ?? 0;
+  } catch {
+    stStatus.textContent = 'Sin conexión';
+  }
+}
+
+cargarEstadoSistema();

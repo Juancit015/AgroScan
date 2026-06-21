@@ -10,6 +10,161 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 
 ## [No publicado]
 
+### Por hacer (roadmap)
+- Comparación temporal entre análisis del mismo cultivo (antes / después)
+- Alertas automáticas por aumento de casos de una enfermedad
+- Exportar diagnóstico a PDF
+- Filtros en el historial (por cultivo, enfermedad, fecha)
+- Limpieza periódica de `static/uploads/`
+- Rate limiting sobre `/analizar`
+- Expiración explícita de sesión
+
+---
+
+## [0.7.0] — 2026-06-21
+
+### Agregado
+- **Sistema de notificaciones (toast) reutilizable**: `mostrarToast(tipo,
+  título, descripción, duraciónMs)` en `index.js`, con estilo "logro
+  desbloqueado" — ícono circular según tipo (success/error/warning/info),
+  entrada deslizante desde la esquina, barra de progreso de auto-cierre y
+  botón de cierre manual. Reemplaza los `alert()` nativos del panel admin
+  (crear/editar/eliminar usuario) y se conecta también a los errores de
+  análisis, para que sean visibles aunque el usuario no esté mirando el
+  panel de resultados en ese momento.
+- **Detección inteligente de cámara**: en escritorio, el botón "Tomar
+  foto" ahora verifica primero (`navigator.mediaDevices.enumerateDevices`)
+  si existe una cámara física conectada. Si no la hay, se informa con un
+  toast claro en vez de abrir un selector de archivos confuso o dejar que
+  el navegador falle en silencio. En móvil el comportamiento no cambia:
+  sigue abriendo la cámara nativa directamente.
+- **Avatar de perfil**: columna `avatar_path` en la tabla `usuarios`
+  (migración no destructiva), endpoint `POST /perfil/avatar` (multipart,
+  valida extensión: png/jpg/jpeg/webp/gif) y funciones `actualizar_avatar`
+  / `subir_avatar`. El avatar es siempre circular; sin foto se muestra un
+  círculo con la inicial del nombre sobre fondo de marca (estilo
+  GitHub/Discord), clicable tanto en el navbar de escritorio como dentro
+  del drawer móvil para subir una nueva imagen sin recargar la página.
+- **Logo editable con fallback automático**: `templates/login.html` e
+  `templates/index.html` ahora cargan `static/assets/logo.png` mediante
+  `<img onerror=...>`; si el archivo no existe, el `onerror` oculta la
+  imagen y muestra el emoji 🌱 de respaldo sin romper el layout. Se agregó
+  `static/assets/LEEME.txt` con las recomendaciones de tamaño/formato.
+
+### Cambiado
+- **Login totalmente responsive**: se reemplazaron los `font-size` fijos
+  del panel de login por `clamp()` (título, subtítulo, logo, tags), se
+  agregó `min-width: 0` a ambos paneles flex (la causa real del
+  desbordamiento: por defecto los hijos flex no se encogen por debajo del
+  ancho de su contenido) y `overflow-wrap: break-word` como red de
+  seguridad. El `min-height` fijo de 540px del wrapper pasa a
+  `min(540px, 90vh)` para no desbordar en pantallas bajas (móvil en
+  horizontal), con un media query adicional para `max-height: 560px`.
+- El navbar gana padding vertical (`.55rem`) para acomodar el avatar, que
+  es visualmente más grande que el emoji que reemplaza.
+
+### Corregido
+- Se eliminó CSS huérfano (`.hint`) en `login.css`, resabio del bloque de
+  "usuarios de prueba" retirado en una versión anterior del HTML.
+
+---
+
+## [0.6.0] — 2026-06-20
+
+### Agregado
+- **Edición de usuarios** desde el panel admin (`PUT /admin/usuarios/<id>`):
+  permite cambiar nombre y/o clave de un usuario existente sin necesidad de
+  eliminarlo y volver a crearlo. El rol no es editable desde esta ruta.
+- **Bloqueo de nombres duplicados**: `nombre_en_uso()` en `database.py`
+  compara nombres de forma insensible a mayúsculas/espacios y se usa tanto
+  al crear como al editar usuarios, devolviendo `409 Conflict` con un
+  mensaje claro si ya existe alguien con ese nombre.
+- Límite de 30 caracteres en el campo nombre (formularios de creación y
+  edición), validado en frontend y backend.
+- **Persistencia real de imágenes en el historial**: cada análisis ahora
+  guarda su foto en `static/uploads/` y el historial la muestra como
+  miniatura en cada tarjeta, junto con una mini barra de confianza.
+- Plugin `emptyStatePlugin` para Chart.js: dibuja un mensaje contextual
+  ("Aún no hay análisis registrados" / "Activa categorías desde la
+  leyenda") cuando un gráfico del dashboard queda sin datos visibles, en
+  vez de mostrar un canvas vacío sin explicación.
+- **Widget "Estado del sistema"** en la sección Analizar: nueva ruta
+  `GET /estado` que reporta si la IA está configurada, qué modelo usa,
+  cuánto tardó la última respuesta (medido en tiempo real alrededor de la
+  llamada a Groq) y el total de análisis del usuario. Antes el HTML del
+  widget existía sin ninguna ruta ni JS que lo alimentara, por lo que se
+  quedaba indefinidamente en "Cargando...".
+- **Navbar responsive rediseñado**: en escritorio el menú es siempre
+  visible y se reorganiza solo con `flex-wrap` + `clamp()` al achicar la
+  ventana, sin colapsar nunca a hamburguesa. En móvil aparece un menú
+  hamburguesa con drawer lateral.
+
+### Corregido
+- **Cámara no funcionaba en Android (Chrome)**: `getUserMedia` requiere
+  HTTPS o `localhost` real, y `127.0.0.1` accedido desde el teléfono en la
+  misma red no califica como origen seguro para el navegador, por lo que
+  la cámara fallaba en silencio. Se reemplazó por completo el flujo de
+  captura por `<input type="file" capture="environment">`, que delega en
+  la app de cámara nativa del sistema operativo y funciona igual de bien
+  en PC y móvil. La opción "Cámara en vivo (solo PC)" basada en
+  `getUserMedia` se evaluó como redundante una vez resuelto esto y se
+  eliminó por completo (HTML, CSS y JS, incluyendo los elementos
+  `<video>`/`<canvas>` que ya no se usaban).
+- **Menú hamburguesa con opciones no clicables**: el overlay oscuro y el
+  panel deslizante (drawer) vivían como elementos hermanos en el DOM con
+  z-index distintos, lo que en ciertos casos de stacking context dejaba al
+  overlay por encima del drawer y bloqueaba los toques. Se corrigió
+  anidando el drawer **dentro** del overlay, de forma que ambos comparten
+  el mismo contexto de apilamiento.
+- **Texto del menú móvil "oscurecido"**: los links usaban un color con
+  60% de opacidad que solo subía a blanco en `:hover` — un estado que no
+  existe en pantallas táctiles. Ahora el texto tiene buen contraste desde
+  el primer render.
+- **Botón "Salir" duplicado y suelto en móvil**: al activarse el menú
+  hamburguesa, el botón Salir del navbar principal seguía visible junto
+  al ícono de hamburguesa, separado de su versión (correcta) dentro del
+  drawer. Se oculta ahora el bloque completo `.nav-usuario` del navbar
+  principal en el breakpoint móvil.
+- Hover de elevación (`translateY` + sombra ampliada) en las tarjetas del
+  dashboard, considerado innecesario una vez visto en uso — se mantiene el
+  resto del retoque visual (sombra base, borde superior verde) sin el
+  efecto de movimiento.
+- Bug de funciones duplicadas en `database.py`: `obtener_todos_usuarios`,
+  `agregar_usuario`, `eliminar_usuario` y `obtener_estadisticas_globales`
+  estaban definidas dos veces; la segunda definición sobrescribía
+  silenciosamente a la primera en tiempo de importación, perdiendo campos
+  como `por_cultivo`, `por_enfermedad` y `actividad_semanal` del panel
+  admin. Se fusionaron en una sola versión que conserva lo mejor de ambas.
+- Bug de markup: quedaba un `</nav>` huérfano y un `<div class="nav-overlay">`
+  vacío duplicado, remanentes de una reestructuración anterior del navbar.
+
+### Diseño
+- Rediseño del botón "Salir": de un botón rectangular discreto a una
+  píldora con ícono de logout, borde sutil y estado hover que invierte a
+  fondo blanco con texto verde, integrándose mejor con el resto de la
+  interfaz.
+- Tipografía y espaciado de los links del navbar de escritorio
+  incrementados ligeramente (`.82rem` → `.92rem`) para mejorar legibilidad,
+  y el estado "activo" pasa de un gris translúcido apenas perceptible al
+  verde claro de la paleta con una sombra sutil.
+
+- `requirements.txt` con las dependencias exactas del proyecto, y
+  `.env.example` como plantilla para que un nuevo colaborador sepa qué
+  variable de entorno necesita sin exponer ninguna key real.
+- `LICENSE` (MIT) para dejar claros los términos de uso del código al
+  publicarlo en un repositorio público.
+- `README.md` reescrito de cero pensado específicamente para GitHub:
+  badges, tabla de contenidos, diagrama de flujo simplificado, tabla de
+  rutas de la API y guía de instalación verificada paso a paso.
+- `ARCHITECTURE.md` reescrito de cero para reflejar el estado actual del
+  proyecto (panel admin, validación de imágenes, navbar responsive, etc.),
+  incluyendo una tabla de decisiones de diseño con sus alternativas
+  consideradas y una sección de limitaciones conocidas.
+
+---
+
+## [0.5.0] — 2026-06-19
+
 ### Agregado
 - `README.md`, `ARCHITECTURE.md` y este `CHANGELOG.md` como documentación
   formal del proyecto, pensados para que un desarrollador externo entienda
@@ -27,13 +182,6 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 - El mensaje de error del login (`"DNI no registrado en el sistema"`) se
   generaliza a `"Clave incorrecta"`, consistente con el resto de la
   interfaz, que ya no expone que la clave es el DNI.
-
-### Por hacer (roadmap)
-- Comparación temporal entre análisis del mismo cultivo (antes / después)
-- Alertas automáticas por aumento de casos de una enfermedad
-- Exportar diagnóstico a PDF
-- Filtros en el historial (por cultivo, enfermedad, fecha)
-- Limpieza periódica de `static/uploads/`
 
 ---
 

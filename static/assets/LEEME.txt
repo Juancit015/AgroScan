@@ -1,0 +1,14 @@
+Coloca aquí el logotipo oficial de AgroScan con el nombre exacto: logo.png
+
+Mientras este archivo no exista, la interfaz muestra automáticamente un
+emoji 🌱 de respaldo en su lugar (login y barra de navegación), sin que
+el diseño se rompa.
+
+Recomendaciones para el archivo:
+- Formato: PNG con fondo transparente (también funciona SVG si renombras
+  las referencias en templates/login.html y templates/index.html de
+  "logo.png" a "logo.svg").
+- Tamaño sugerido: al menos 160x160px, proporción cuadrada o cercana.
+- El logo se redimensiona automáticamente a ~40px de alto en el login y
+  ~28px en la barra de navegación, manteniendo su proporción original
+  (no se deforma).

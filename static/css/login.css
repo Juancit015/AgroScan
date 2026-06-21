@@ -32,12 +32,15 @@ body::before {
   pointer-events: none;
 }
 
-/* ── Contenedor principal ── */
+/* ── Contenedor principal ──
+   min-height es una guía, no una imposición: en viewports bajos (móvil
+   horizontal, laptops de poca altura) el contenedor puede encogerse sin
+   forzar scroll ni desbordar la pantalla. */
 .wrapper {
   display: flex;
   width: 100%;
   max-width: 900px;
-  min-height: 540px;
+  min-height: min(540px, 90vh);
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(27,67,50,0.18);
@@ -46,8 +49,9 @@ body::before {
 /* ── Panel izquierdo ── */
 .panel-izq {
   flex: 1;
+  min-width: 0; /* permite que flex-basis se reduzca por debajo del contenido sin desbordar */
   background: var(--verde-profundo);
-  padding: 3rem 2.5rem;
+  padding: clamp(1.75rem, 5vw, 3rem) clamp(1.5rem, 4vw, 2.5rem);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -95,14 +99,24 @@ body::before {
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.logo-img {
+  height: 40px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .logo-text {
   font-family: 'Syne', sans-serif;
-  font-size: 1.5rem;
+  font-size: clamp(1.15rem, 3.5vw, 1.5rem);
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.5px;
+  white-space: nowrap;
 }
 
 .logo-text span { color: var(--tierra); }
@@ -115,11 +129,12 @@ body::before {
 
 .panel-izq-contenido h2 {
   font-family: 'Syne', sans-serif;
-  font-size: 2rem;
+  font-size: clamp(1.35rem, 4vw, 2rem);
   font-weight: 800;
   color: #fff;
-  line-height: 1.2;
+  line-height: 1.25;
   margin-bottom: 1rem;
+  overflow-wrap: break-word;
 }
 
 .panel-izq-contenido h2 em {
@@ -129,8 +144,9 @@ body::before {
 
 .panel-izq-contenido p {
   color: rgba(255,255,255,0.6);
-  font-size: 0.9rem;
+  font-size: clamp(0.8rem, 2vw, 0.9rem);
   line-height: 1.6;
+  overflow-wrap: break-word;
 }
 
 /* Tags */
@@ -147,9 +163,10 @@ body::before {
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.12);
   color: rgba(255,255,255,0.7);
-  padding: 0.3rem 0.8rem;
+  padding: 0.3rem 0.7rem;
   border-radius: 99px;
-  font-size: 0.75rem;
+  font-size: clamp(0.68rem, 1.8vw, 0.75rem);
+  white-space: nowrap;
 }
 
 /* Footer izquierdo */
@@ -163,8 +180,9 @@ body::before {
 /* ── Panel derecho ── */
 .panel-der {
   flex: 1;
+  min-width: 0;
   background: #fff;
-  padding: 3rem 2.5rem;
+  padding: clamp(1.75rem, 5vw, 3rem) clamp(1.5rem, 4vw, 2.5rem);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -172,7 +190,7 @@ body::before {
 
 .panel-der h1 {
   font-family: 'Syne', sans-serif;
-  font-size: 1.6rem;
+  font-size: clamp(1.3rem, 3.5vw, 1.6rem);
   font-weight: 800;
   color: var(--texto);
   margin-bottom: 0.4rem;
@@ -180,8 +198,9 @@ body::before {
 
 .subtitulo {
   color: var(--texto-suave);
-  font-size: 0.9rem;
+  font-size: clamp(0.82rem, 2vw, 0.9rem);
   margin-bottom: 2rem;
+  overflow-wrap: break-word;
 }
 
 /* Campo de formulario */
@@ -281,27 +300,23 @@ input[type="text"].error-input { border-color: var(--error); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Hint de usuarios de prueba */
-.hint {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: rgba(82,183,136,0.08);
-  border-left: 3px solid var(--verde-claro);
-  border-radius: 6px;
-  font-size: 0.82rem;
-  color: var(--texto-suave);
-  line-height: 1.6;
-}
-
-.hint strong {
-  color: var(--verde-profundo);
-  display: block;
-  margin-bottom: 0.3rem;
-}
-
-/* ── Responsive ── */
+/* ── Responsive ──
+   En lugar de un único breakpoint que oculta todo el panel izquierdo de
+   golpe, se añade un paso intermedio: entre 641px y 760px el panel
+   izquierdo se mantiene pero se reduce, gracias a los tamaños fluidos
+   con clamp() definidos arriba — ya no hace falta forzar nada aquí salvo
+   el caso extremo de pantallas angostas, donde un solo panel da mejor
+   experiencia que dos columnas comprimidas. */
 @media (max-width: 640px) {
-  .panel-izq  { display: none; }
-  .wrapper    { border-radius: 16px; }
-  .panel-der  { padding: 2.5rem 1.5rem; }
+  body       { padding: 1rem; }
+  .panel-izq { display: none; }
+  .wrapper   { border-radius: 16px; min-height: auto; }
+  .panel-der { padding: clamp(2rem, 8vw, 2.5rem) clamp(1.25rem, 6vw, 1.5rem); }
+}
+
+/* Pantallas muy bajas en altura (móvil en horizontal, ventanas
+   reducidas): se prioriza que todo el formulario quepa sin recortarse. */
+@media (max-height: 560px) {
+  body     { padding: .75rem; align-items: flex-start; }
+  .wrapper { min-height: auto; }
 }

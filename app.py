@@ -22,9 +22,10 @@ from functools import wraps
 from database import (inicializar_db, buscar_usuario_por_dni, guardar_analisis,
                       obtener_historial, obtener_estadisticas,
                       obtener_todos_usuarios, agregar_usuario, eliminar_usuario,
+                      editar_usuario, nombre_en_uso, actualizar_avatar,
                       obtener_estadisticas_globales)
 from groq import Groq
-import base64, os, json, re, uuid
+import base64, os, json, re, uuid, time
 from datetime import datetime
 
 load_dotenv()
@@ -35,6 +36,16 @@ app.secret_key = "agroscan_secret_2024"
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 inicializar_db()
+
+# Las fotos de cultivos van directo a static/uploads/ (carpeta ya presente
+# en el repo); los avatares de perfil viven en una subcarpeta propia que
+# se crea sola si todavía no existe.
+os.makedirs(os.path.join("static", "uploads", "avatars"), exist_ok=True)
+
+# Tiempo (en segundos) que tardó la última llamada a la IA. Vive en memoria
+# del proceso — se reinicia si el servidor se reinicia, lo cual es
+# aceptable para un widget informativo de "estado del sistema".
+ultimo_tiempo_respuesta = None
 
 PROMPT = """
 Eres un experto en agronomía y fitosanidad especializado en cultivos peruanos.
@@ -80,7 +91,8 @@ def index():
         return render_template("login.html")
     return render_template("index.html",
                            usuario=session.get("nombre"),
-                           rol=session.get("rol"))
+                           rol=session.get("rol"),
+                           avatar=session.get("avatar_path"))
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -91,9 +103,10 @@ def login():
     usuario = buscar_usuario_por_dni(dni)
     if not usuario:
         return jsonify({"error": "Credenciales incorrectas"}), 401
-    session["usuario_id"] = usuario["id"]
-    session["nombre"]     = usuario["nombre"]
-    session["rol"]        = usuario["rol"]
+    session["usuario_id"]   = usuario["id"]
+    session["nombre"]       = usuario["nombre"]
+    session["rol"]          = usuario["rol"]
+    session["avatar_path"]  = usuario.get("avatar_path")
     return jsonify({"mensaje": f"Bienvenido, {usuario['nombre']}!",
                     "nombre": usuario["nombre"], "rol": usuario["rol"]})
 
@@ -128,6 +141,9 @@ def analizar():
             imagen_base64 = imagen_base64.split(",")[1]
         imagen_bytes = base64.b64decode(imagen_base64)
 
+        # Se mide el tiempo de respuesta de la IA para mostrarlo en el
+        # widget "Estado del sistema" (ver /estado más abajo).
+        t0 = time.time()
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[{"role": "user", "content": [
@@ -136,6 +152,8 @@ def analizar():
             ]}],
             max_tokens=1024
         )
+        global ultimo_tiempo_respuesta
+        ultimo_tiempo_respuesta = round(time.time() - t0, 1)
 
         # La IA a veces envuelve el JSON en ```json ... ``` pese a la
         # instrucción del prompt; se limpia antes de parsear.
@@ -165,6 +183,37 @@ def analizar():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+EXTENSIONES_AVATAR_PERMITIDAS = {"png", "jpg", "jpeg", "webp", "gif"}
+
+@app.route("/perfil/avatar", methods=["POST"])
+def subir_avatar():
+    """
+    Recibe una imagen (multipart/form-data, campo 'avatar'), la guarda en
+    static/uploads/avatars/ con nombre único y actualiza la ruta tanto en
+    la base de datos como en la sesión activa, para que el navbar se
+    refresque sin tener que volver a iniciar sesión.
+    """
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesión"}), 401
+
+    archivo = request.files.get("avatar")
+    if not archivo or archivo.filename == "":
+        return jsonify({"error": "No se recibió ninguna imagen"}), 400
+
+    extension = archivo.filename.rsplit(".", 1)[-1].lower() if "." in archivo.filename else ""
+    if extension not in EXTENSIONES_AVATAR_PERMITIDAS:
+        return jsonify({"error": "Formato no soportado. Usa PNG, JPG, WEBP o GIF."}), 400
+
+    filename = f"{session['usuario_id']}_{uuid.uuid4().hex[:8]}.{extension}"
+    filepath = os.path.join("static", "uploads", "avatars", filename)
+    archivo.save(filepath)
+
+    avatar_path = f"uploads/avatars/{filename}"
+    actualizar_avatar(session["usuario_id"], avatar_path)
+    session["avatar_path"] = avatar_path
+
+    return jsonify({"mensaje": "Foto de perfil actualizada", "avatar_path": avatar_path})
+
 @app.route("/historial")
 def historial():
     if "usuario_id" not in session:
@@ -177,7 +226,30 @@ def estadisticas():
         return jsonify({"error": "No has iniciado sesión"}), 401
     return jsonify(obtener_estadisticas(session["usuario_id"]))
 
+@app.route("/estado")
+def estado_sistema():
+    """
+    Datos para el widget 'Estado del sistema' del analizador: si la IA
+    está configurada, qué modelo usa, cuánto tardó la última respuesta y
+    cuántos análisis lleva el usuario en total.
+    """
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesión"}), 401
+    stats = obtener_estadisticas(session["usuario_id"])
+    return jsonify({
+        "online":           bool(os.getenv("GROQ_API_KEY")),
+        "modelo":           "Llama 4 Scout",
+        "ultimo_tiempo_s":  ultimo_tiempo_respuesta,
+        "total_analisis":   stats["total_analisis"]
+    })
+
 # ── Rutas Admin ───────────────────────────────────────────────────
+# El admin puede: ver la lista de usuarios con sus estadísticas, crear
+# nuevos usuarios, editar nombre/clave de uno existente (bloqueando nombres
+# duplicados) y eliminar usuarios. No expone qué representa la "clave"
+# (es el DNI) en ningún mensaje, por diseño — ver CHANGELOG [0.4.0].
+
+NOMBRE_MAX_LEN = 30
 
 @app.route("/admin/usuarios")
 @requiere_admin
@@ -191,14 +263,54 @@ def admin_agregar_usuario():
     nombre = data.get("nombre", "").strip()
     clave  = data.get("clave", "").strip()
     rol    = data.get("rol", "agricultor")
+
     if not nombre or not clave:
         return jsonify({"error": "Nombre y clave son requeridos"}), 400
+    if len(nombre) > NOMBRE_MAX_LEN:
+        return jsonify({"error": f"El nombre no puede superar {NOMBRE_MAX_LEN} caracteres"}), 400
     if len(clave) != 8 or not clave.isdigit():
         return jsonify({"error": "La clave debe tener exactamente 8 dígitos"}), 400
+    if nombre_en_uso(nombre):
+        return jsonify({"error": "Ya existe un usuario con ese nombre. Usa uno distinto (por ejemplo, agrega un apellido o inicial)."}), 409
+
     resultado = agregar_usuario(nombre, clave, rol)
     if resultado["ok"]:
         return jsonify({"mensaje": f"Usuario {nombre} creado correctamente"})
-    return jsonify({"error": "La clave ya está registrada"}), 409
+    return jsonify({"error": resultado.get("error", "La clave ya está registrada")}), 409
+
+@app.route("/admin/usuarios/<int:uid>", methods=["PUT"])
+@requiere_admin
+def admin_editar_usuario(uid):
+    """
+    Permite cambiar nombre y/o clave de un usuario. Ambos campos son
+    opcionales: solo se actualiza lo que venga en el body. El rol NO es
+    editable desde aquí — el admin solo gestiona nombre y clave.
+    """
+    data   = request.get_json() or {}
+    nombre = data.get("nombre")
+    clave  = data.get("clave")
+
+    if nombre is None and clave is None:
+        return jsonify({"error": "Indica un nombre y/o una clave nueva"}), 400
+
+    if nombre is not None:
+        nombre = nombre.strip()
+        if not nombre:
+            return jsonify({"error": "El nombre no puede estar vacío"}), 400
+        if len(nombre) > NOMBRE_MAX_LEN:
+            return jsonify({"error": f"El nombre no puede superar {NOMBRE_MAX_LEN} caracteres"}), 400
+        if nombre_en_uso(nombre, excluir_id=uid):
+            return jsonify({"error": "Ya existe otro usuario con ese nombre. Elige uno distinto."}), 409
+
+    if clave is not None:
+        clave = clave.strip()
+        if len(clave) != 8 or not clave.isdigit():
+            return jsonify({"error": "La clave debe tener exactamente 8 dígitos"}), 400
+
+    resultado = editar_usuario(uid, nombre=nombre, dni=clave)
+    if resultado["ok"]:
+        return jsonify({"mensaje": "Usuario actualizado correctamente"})
+    return jsonify({"error": resultado.get("error", "No se pudo actualizar el usuario")}), 409
 
 @app.route("/admin/usuarios/<int:uid>", methods=["DELETE"])
 @requiere_admin

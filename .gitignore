@@ -7,10 +7,16 @@ agroscan.db
 # Imágenes analizadas por los usuarios
 static/uploads/*
 !static/uploads/.gitkeep
+!static/uploads/avatars/
+static/uploads/avatars/*
+!static/uploads/avatars/.gitkeep
 
 # Python
 __pycache__/
 *.pyc
+venv/
+.venv/
+env/
 
 # Editores / SO
 .vscode/

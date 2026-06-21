@@ -6,6 +6,7 @@
   <title>AgroScan — Iniciar sesión</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}"/>
+  <link rel="icon" type="image/x-icon" href="/static/logo-favicon/favicon-32x32.png">
 </head>
 <body>
 
@@ -14,7 +15,15 @@
   <!-- Panel izquierdo -->
   <div class="panel-izq">
     <div class="logo">
-      <div class="logo-icon">🌱</div>
+      <!-- Logo oficial: reemplaza static/assets/logo.png por tu archivo.
+           Si el archivo no existe (o falla al cargar), onerror oculta la
+           imagen y muestra automáticamente el emoji de respaldo — el
+           diseño nunca se rompe, con o sin logo. -->
+      <img src="{{ url_for('static', filename='assets/logo.png') }}"
+           alt="Logo AgroScan"
+           class="logo-img"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+      <div class="logo-icon" style="display:none;">🌱</div>
       <span class="logo-text">Agro<span>Scan</span></span>
     </div>
     <div class="panel-izq-contenido">

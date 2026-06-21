@@ -65,6 +65,11 @@ def inicializar_db():
         except:
             pass
 
+    try:
+        cur.execute("ALTER TABLE usuarios ADD COLUMN avatar_path TEXT")
+    except:
+        pass
+
     cur.execute("SELECT COUNT(*) FROM usuarios")
     if cur.fetchone()[0] == 0:
         cur.executemany("INSERT INTO usuarios (nombre, dni, rol) VALUES (?, ?, ?)", [
@@ -190,112 +195,10 @@ def obtener_estadisticas(usuario_id):
 
 # ── Funciones admin ──────────────────────────────────────────────
 
-def obtener_todos_usuarios():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT u.id, u.nombre, u.dni, u.rol,
-               COUNT(a.id) as total_analisis
-        FROM usuarios u
-        LEFT JOIN analisis a ON a.usuario_id = u.id
-        GROUP BY u.id
-        ORDER BY u.rol DESC, u.nombre
-    """)
-    usuarios = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    return usuarios
 
-
-def agregar_usuario(nombre, dni, rol="agricultor"):
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("INSERT INTO usuarios (nombre, dni, rol) VALUES (?, ?, ?)", (nombre, dni, rol))
-        conn.commit()
-        uid = cur.lastrowid
-        conn.close()
-        return {"ok": True, "id": uid}
-    except sqlite3.IntegrityError:
-        conn.close()
-        return {"ok": False, "error": "La clave ya está registrada"}
-
-
-def eliminar_usuario(usuario_id):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM analisis WHERE usuario_id = ?", (usuario_id,))
-    cur.execute("DELETE FROM usuarios WHERE id = ?", (usuario_id,))
-    conn.commit()
-    conn.close()
-
-
-def obtener_estadisticas_globales():
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("SELECT COUNT(*) FROM analisis")
-    total = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM usuarios")
-    total_usuarios = cur.fetchone()[0]
-
-    cur.execute("SELECT AVG(confianza) FROM analisis WHERE confianza IS NOT NULL")
-    row = cur.fetchone()
-    confianza_promedio = round(row[0] or 0)
-
-    cur.execute("""
-        SELECT u.nombre, COUNT(a.id) as total
-        FROM usuarios u
-        LEFT JOIN analisis a ON a.usuario_id = u.id
-        GROUP BY u.id ORDER BY total DESC
-    """)
-    por_usuario = [dict(r) for r in cur.fetchall()]
-
-    cur.execute("""
-        SELECT cultivo, COUNT(*) as cantidad FROM analisis
-        WHERE cultivo IS NOT NULL
-        GROUP BY cultivo ORDER BY cantidad DESC LIMIT 6
-    """)
-    por_cultivo = [dict(r) for r in cur.fetchall()]
-
-    cur.execute("SELECT enfermedades FROM analisis")
-    sanos = enfermos = 0
-    enf_freq = {}
-    for r in cur.fetchall():
-        enfs = json.loads(r["enfermedades"] or "[]")
-        if enfs:
-            enfermos += 1
-            for e in enfs:
-                n = e.get("nombre", "Desconocida")
-                enf_freq[n] = enf_freq.get(n, 0) + 1
-        else:
-            sanos += 1
-
-    hoy = datetime.now().date()
-    ultimos_7 = [(hoy - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
-    cur.execute("""
-        SELECT date(fecha) as dia, COUNT(*) as cantidad FROM analisis
-        WHERE date(fecha) >= ? GROUP BY date(fecha)
-    """, (ultimos_7[0],))
-    act_dict = {r["dia"]: r["cantidad"] for r in cur.fetchall()}
-    actividad_semanal = [{"dia": d, "cantidad": act_dict.get(d, 0)} for d in ultimos_7]
-
-    conn.close()
-    return {
-        "total_analisis":     total,
-        "total_usuarios":     total_usuarios,
-        "confianza_promedio": confianza_promedio,
-        "por_usuario":        por_usuario,
-        "por_cultivo":        por_cultivo,
-        "por_estado":         {"sanos": sanos, "enfermos": enfermos},
-        "por_enfermedad":     sorted([{"nombre": k, "cantidad": v} for k, v in enf_freq.items()], key=lambda x: x["cantidad"], reverse=True)[:6],
-        "actividad_semanal":  actividad_semanal
-    }
-
-
-# ── Funciones de admin ────────────────────────────────────────────
 
 def obtener_todos_usuarios():
+    """Lista todos los usuarios con su cantidad de análisis y el más reciente."""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -311,6 +214,30 @@ def obtener_todos_usuarios():
     return rows
 
 
+def nombre_en_uso(nombre, excluir_id=None):
+    """
+    True si ya existe un usuario con ese nombre (comparación insensible a
+    mayúsculas/espacios extremos). Si excluir_id se indica, ese usuario no
+    cuenta (para permitir guardar sin cambios al editar).
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    nombre_normalizado = nombre.strip().lower()
+    if excluir_id:
+        cur.execute(
+            "SELECT 1 FROM usuarios WHERE LOWER(TRIM(nombre)) = ? AND id != ?",
+            (nombre_normalizado, excluir_id)
+        )
+    else:
+        cur.execute(
+            "SELECT 1 FROM usuarios WHERE LOWER(TRIM(nombre)) = ?",
+            (nombre_normalizado,)
+        )
+    existe = cur.fetchone() is not None
+    conn.close()
+    return existe
+
+
 def agregar_usuario(nombre, dni, rol="agricultor"):
     conn = get_connection()
     cur = conn.cursor()
@@ -320,9 +247,46 @@ def agregar_usuario(nombre, dni, rol="agricultor"):
         uid = cur.lastrowid
         conn.close()
         return {"ok": True, "id": uid}
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {"ok": False, "error": "La clave ya está registrada"}
     except Exception as e:
         conn.close()
         return {"ok": False, "error": str(e)}
+
+
+def editar_usuario(usuario_id, nombre=None, dni=None):
+    """
+    Actualiza nombre y/o clave de un usuario existente. El llamador
+    (app.py) es responsable de validar previamente que el nombre no esté
+    duplicado (ver nombre_en_uso) y que la clave tenga el formato correcto;
+    aquí solo se protege la unicidad de la clave a nivel de base de datos.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        if nombre is not None:
+            cur.execute("UPDATE usuarios SET nombre = ? WHERE id = ?", (nombre, usuario_id))
+        if dni is not None:
+            cur.execute("UPDATE usuarios SET dni = ? WHERE id = ?", (dni, usuario_id))
+        conn.commit()
+        conn.close()
+        return {"ok": True}
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {"ok": False, "error": "La clave ya está registrada por otro usuario"}
+    except Exception as e:
+        conn.close()
+        return {"ok": False, "error": str(e)}
+
+
+def actualizar_avatar(usuario_id, avatar_path):
+    """Guarda (o limpia, si avatar_path es None) la ruta del avatar de un usuario."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE usuarios SET avatar_path = ? WHERE id = ?", (avatar_path, usuario_id))
+    conn.commit()
+    conn.close()
 
 
 def eliminar_usuario(usuario_id):
@@ -335,6 +299,7 @@ def eliminar_usuario(usuario_id):
 
 
 def obtener_estadisticas_globales():
+    """Estadísticas agregadas de toda la plataforma, para el panel admin."""
     conn = get_connection()
     cur = conn.cursor()
 
@@ -356,6 +321,13 @@ def obtener_estadisticas_globales():
     r = cur.fetchone()
     confianza_promedio = round(r[0] or 0)
 
+    cur.execute("""
+        SELECT cultivo, COUNT(*) as cantidad FROM analisis
+        WHERE cultivo IS NOT NULL
+        GROUP BY cultivo ORDER BY cantidad DESC LIMIT 6
+    """)
+    por_cultivo = [dict(r) for r in cur.fetchall()]
+
     cur.execute("SELECT enfermedades FROM analisis")
     enf_freq = {}
     sanos = enfermos = 0
@@ -370,6 +342,19 @@ def obtener_estadisticas_globales():
             sanos += 1
 
     enfermedad_comun = max(enf_freq, key=enf_freq.get) if enf_freq else "—"
+    por_enfermedad = sorted(
+        [{"nombre": k, "cantidad": v} for k, v in enf_freq.items()],
+        key=lambda x: x["cantidad"], reverse=True
+    )[:6]
+
+    hoy = datetime.now().date()
+    ultimos_7 = [(hoy - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
+    cur.execute("""
+        SELECT date(fecha) as dia, COUNT(*) as cantidad FROM analisis
+        WHERE date(fecha) >= ? GROUP BY date(fecha)
+    """, (ultimos_7[0],))
+    act_dict = {r["dia"]: r["cantidad"] for r in cur.fetchall()}
+    actividad_semanal = [{"dia": d, "cantidad": act_dict.get(d, 0)} for d in ultimos_7]
 
     cur.execute("""
         SELECT u.nombre, COUNT(a.id) as cantidad
@@ -386,5 +371,8 @@ def obtener_estadisticas_globales():
         "confianza_promedio": confianza_promedio,
         "enfermedad_comun":   enfermedad_comun,
         "por_estado":         {"sanos": sanos, "enfermos": enfermos},
+        "por_cultivo":        por_cultivo,
+        "por_enfermedad":     por_enfermedad,
+        "actividad_semanal":  actividad_semanal,
         "actividad_usuarios": actividad_usuarios
     }
