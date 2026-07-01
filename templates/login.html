@@ -45,37 +45,92 @@
 
   <!-- Panel derecho -->
   <div class="panel-der">
-    <h1>Bienvenido</h1>
-    <p class="subtitulo">Ingresa tu clave para acceder al sistema</p>
+    <div id="vista-login">
+      <h1>Bienvenido</h1>
+      <p class="subtitulo">Ingresa tu clave para acceder al sistema</p>
 
-    <div class="campo">
-      <label for="dni">Clave de acceso</label>
-      <div class="input-wrap">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0M9 14h.01M15 14h.01M9 17h6"/>
-        </svg>
-        <input
-          type="text"
-          id="dni"
-          placeholder="••••••••"
-          maxlength="8"
-          autocomplete="off"
-          inputmode="numeric"
-        />
+      <div class="campo">
+        <label for="dni">Clave de acceso</label>
+        <div class="input-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0M9 14h.01M15 14h.01M9 17h6"/>
+          </svg>
+          <input
+            type="text"
+            id="dni"
+            placeholder="••••••••"
+            maxlength="8"
+            autocomplete="off"
+            inputmode="numeric"
+          />
+        </div>
+        <div class="mensaje-error" id="error-msg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          <span id="error-texto">Clave incorrecta</span>
+        </div>
       </div>
-      <div class="mensaje-error" id="error-msg">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-        </svg>
-        <span id="error-texto">Clave incorrecta</span>
-      </div>
+
+      <button class="btn-ingresar" id="btn-login">
+        <div class="spinner" id="spinner"></div>
+        <span id="btn-texto">Ingresar al sistema</span>
+      </button>
+
+      <p class="toggle-form">¿No estás registrado? <a href="#" id="link-registro">¡Regístrate!</a></p>
     </div>
 
-    <button class="btn-ingresar" id="btn-login">
-      <div class="spinner" id="spinner"></div>
-      <span id="btn-texto">Ingresar al sistema</span>
-    </button>
+    <!-- Panel de Registro -->
+    <div id="vista-registro" style="display:none;">
+      <h1>Regístrate</h1>
+      <p class="subtitulo">Crea tu cuenta de agricultor</p>
+
+      <div class="campo">
+        <label for="reg-nombre">Nombre y Apellido</label>
+        <div class="input-wrap">
+          <input type="text" id="reg-nombre" placeholder="Ej. Juan Pérez" maxlength="30" autocomplete="off" />
+        </div>
+      </div>
+      
+      <div class="campo">
+        <label for="reg-region">Región</label>
+        <div class="input-wrap">
+          <select id="reg-region" class="select-input">
+            <option value="">Selecciona tu región...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label for="reg-localidad">Localidad</label>
+        <div class="input-wrap">
+          <select id="reg-localidad" class="select-input" disabled>
+            <option value="">Primero selecciona región</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label for="reg-dni">Clave de acceso (8 dígitos)</label>
+        <div class="input-wrap">
+          <input type="text" id="reg-dni" placeholder="••••••••" maxlength="8" autocomplete="off" inputmode="numeric" />
+        </div>
+        <div class="mensaje-error" id="reg-error-msg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          <span id="reg-error-texto">Error</span>
+        </div>
+      </div>
+
+      <button class="btn-ingresar" id="btn-registrar">
+        <div class="spinner" id="reg-spinner"></div>
+        <span id="reg-btn-texto">Crear cuenta</span>
+      </button>
+
+      <p class="toggle-form">¿Ya tienes cuenta? <a href="#" id="link-login">Inicia sesión</a></p>
+    </div>
   </div>
 
 </div>

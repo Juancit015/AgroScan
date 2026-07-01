@@ -22,6 +22,26 @@ from datetime import datetime, timedelta
 
 DB_PATH = "agroscan.db"
 
+
+def top5_y_otros(filas, clave_nombre="cultivo", clave_cantidad="cantidad"):
+    """
+    Recibe una lista de dicts ordenada de mayor a menor por `clave_cantidad`.
+    Devuelve como máximo 6 elementos: los 5 primeros más una entrada "Otros"
+    que agrega el conteo de todos los restantes (solo si existen ≥ 6 tipos).
+
+    Este patrón (Top N + Others) es el estándar de dashboards profesionales
+    (Google Analytics, Mixpanel, Metabase): mantiene el gráfico legible a
+    cualquier escala — con 10, 100 o 1.000 cultivares distintos el chart
+    siempre muestra exactamente 6 barras/segmentos, sin cortar ni saturar.
+    """
+    if len(filas) <= 5:
+        return filas
+    top5  = filas[:5]
+    resto = filas[5:]
+    total_otros = sum(f[clave_cantidad] for f in resto)
+    return top5 + [{clave_nombre: "Otros", clave_cantidad: total_otros,
+                    "_n_otros": len(resto)}]  # _n_otros útil para tooltip/modal
+
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -67,6 +87,12 @@ def inicializar_db():
 
     try:
         cur.execute("ALTER TABLE usuarios ADD COLUMN avatar_path TEXT")
+    except:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE usuarios ADD COLUMN region TEXT")
+        cur.execute("ALTER TABLE usuarios ADD COLUMN localidad TEXT")
     except:
         pass
 
@@ -136,6 +162,55 @@ def obtener_historial(usuario_id):
     return result
 
 
+def verificar_brotes_regionales(enfermedades_detectadas, localidad, dias=7):
+    """
+    Busca análisis en la misma localidad durante los últimos `dias` que contengan
+    las enfermedades recién detectadas. Si el total de ocurrencias > 1, lanza alerta.
+    """
+    if not enfermedades_detectadas or not localidad:
+        return []
+    
+    fecha_limite = datetime.now() - timedelta(days=dias)
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT a.enfermedades
+        FROM analisis a
+        JOIN usuarios u ON a.usuario_id = u.id
+        WHERE u.localidad = ? AND a.fecha >= ?
+    """, (localidad, fecha_limite.strftime("%Y-%m-%d %H:%M:%S")))
+    
+    filas = cur.fetchall()
+    conn.close()
+    
+    conteo = {}
+    for fila in filas:
+        if not fila["enfermedades"]: continue
+        try:
+            enfs = json.loads(fila["enfermedades"])
+            for e in enfs:
+                nombre = e.get("nombre")
+                if nombre:
+                    conteo[nombre] = conteo.get(nombre, 0) + 1
+        except:
+            pass
+            
+    alertas = []
+    for e in enfermedades_detectadas:
+        nombre = e.get("nombre")
+        casos = conteo.get(nombre, 0)
+        if casos > 1:
+            alertas.append({
+                "enfermedad": nombre,
+                "casos": casos,
+                "localidad": localidad,
+                "dias": dias
+            })
+            
+    return alertas
+
+
 def obtener_estadisticas(usuario_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -146,9 +221,9 @@ def obtener_estadisticas(usuario_id):
     cur.execute("""
         SELECT cultivo, COUNT(*) as cantidad FROM analisis
         WHERE usuario_id = ? AND cultivo IS NOT NULL
-        GROUP BY cultivo ORDER BY cantidad DESC LIMIT 6
+        GROUP BY cultivo ORDER BY cantidad DESC
     """, (usuario_id,))
-    por_cultivo = [dict(r) for r in cur.fetchall()]
+    por_cultivo = top5_y_otros([dict(r) for r in cur.fetchall()])
 
     cur.execute("SELECT AVG(confianza) FROM analisis WHERE usuario_id = ? AND confianza IS NOT NULL", (usuario_id,))
     row = cur.fetchone()
@@ -202,7 +277,7 @@ def obtener_todos_usuarios():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT u.id, u.nombre, u.dni, u.rol,
+        SELECT u.id, u.nombre, u.dni, u.rol, u.region, u.localidad,
                COUNT(a.id) as total_analisis,
                MAX(a.fecha) as ultimo_analisis
         FROM usuarios u
@@ -238,11 +313,11 @@ def nombre_en_uso(nombre, excluir_id=None):
     return existe
 
 
-def agregar_usuario(nombre, dni, rol="agricultor"):
+def agregar_usuario(nombre, dni, rol="agricultor", region=None, localidad=None):
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("INSERT INTO usuarios (nombre, dni, rol) VALUES (?, ?, ?)", (nombre, dni, rol))
+        cur.execute("INSERT INTO usuarios (nombre, dni, rol, region, localidad) VALUES (?, ?, ?, ?, ?)", (nombre, dni, rol, region, localidad))
         conn.commit()
         uid = cur.lastrowid
         conn.close()
@@ -255,9 +330,9 @@ def agregar_usuario(nombre, dni, rol="agricultor"):
         return {"ok": False, "error": str(e)}
 
 
-def editar_usuario(usuario_id, nombre=None, dni=None):
+def editar_usuario(usuario_id, nombre=None, dni=None, region=None, localidad=None):
     """
-    Actualiza nombre y/o clave de un usuario existente. El llamador
+    Actualiza datos de un usuario existente. El llamador
     (app.py) es responsable de validar previamente que el nombre no esté
     duplicado (ver nombre_en_uso) y que la clave tenga el formato correcto;
     aquí solo se protege la unicidad de la clave a nivel de base de datos.
@@ -269,6 +344,10 @@ def editar_usuario(usuario_id, nombre=None, dni=None):
             cur.execute("UPDATE usuarios SET nombre = ? WHERE id = ?", (nombre, usuario_id))
         if dni is not None:
             cur.execute("UPDATE usuarios SET dni = ? WHERE id = ?", (dni, usuario_id))
+        if region is not None:
+            cur.execute("UPDATE usuarios SET region = ? WHERE id = ?", (region, usuario_id))
+        if localidad is not None:
+            cur.execute("UPDATE usuarios SET localidad = ? WHERE id = ?", (localidad, usuario_id))
         conn.commit()
         conn.close()
         return {"ok": True}
@@ -287,6 +366,31 @@ def actualizar_avatar(usuario_id, avatar_path):
     cur.execute("UPDATE usuarios SET avatar_path = ? WHERE id = ?", (avatar_path, usuario_id))
     conn.commit()
     conn.close()
+
+
+def obtener_detalles_usuario_admin(usuario_id):
+    """Devuelve el perfil e historial de análisis de un usuario para el admin."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, nombre, dni, rol, region, localidad, avatar_path FROM usuarios WHERE id = ?", (usuario_id,))
+    u_row = cur.fetchone()
+    if not u_row:
+        conn.close()
+        return None
+    
+    perfil = dict(u_row)
+    
+    cur.execute("SELECT * FROM analisis WHERE usuario_id = ? ORDER BY fecha DESC", (usuario_id,))
+    rows = cur.fetchall()
+    conn.close()
+    
+    historial = []
+    for row in rows:
+        item = dict(row)
+        item["enfermedades"]  = json.loads(item.get("enfermedades")  or "[]")
+        historial.append(item)
+        
+    return {"perfil": perfil, "historial": historial}
 
 
 def eliminar_usuario(usuario_id):
@@ -324,9 +428,9 @@ def obtener_estadisticas_globales():
     cur.execute("""
         SELECT cultivo, COUNT(*) as cantidad FROM analisis
         WHERE cultivo IS NOT NULL
-        GROUP BY cultivo ORDER BY cantidad DESC LIMIT 6
+        GROUP BY cultivo ORDER BY cantidad DESC
     """)
-    por_cultivo = [dict(r) for r in cur.fetchall()]
+    por_cultivo = top5_y_otros([dict(r) for r in cur.fetchall()])
 
     cur.execute("SELECT enfermedades FROM analisis")
     enf_freq = {}

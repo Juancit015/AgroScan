@@ -22,12 +22,14 @@ líder en exportación de espárrago).
 - 📊 **Barra de confianza** con código de color (verde / amarillo / rojo)
 - 🔴 **Zona afectada** marcada visualmente sobre la imagen
 - 🔬 **Explicación del diagnóstico** — observaciones que justifican el resultado
-- 📚 **Fuentes citadas** (FAO, SENASA, MINAGRI, etc.)
-- 📋 **Historial** de análisis con imagen guardada y mini barra de confianza
+- 🚨 **Alertas Regionales Epidemiológicas** — cruzamiento de datos de la zona para alertar sobre brotes recientes
+- 📄 **Exportación a PDF** — descarga de informes agronómicos listos para imprimir (`html2pdf.js`)
+- 📚 **Fuentes citadas** con enlaces directos verificados mediante Google Search
+- 📋 **Historial** de análisis con imagen guardada, barra de confianza y filtros dinámicos por tipo de cultivo
 - 📈 **Dashboard** con gráficas (estado de cultivos, enfermedades frecuentes,
   cultivos analizados, actividad semanal, confianza promedio)
-- 🔐 **Login por clave de acceso** (sesiones de Flask)
-- ⚙️ **Panel de administración** — gestión de usuarios y estadísticas globales
+- 🔐 **Login y Registro de Usuarios** (Clave de 8 dígitos numérica, registro con datos de Región y Localidad)
+- ⚙️ **Panel de administración avanzado** — gestión de usuarios, buscador, filtros por región/localidad, vista de historial detallado por usuario, y estadísticas globales
 - 🔮 Sección de **futuras integraciones** (drones, IoT, robots, satélites)
 
 ---
@@ -108,12 +110,10 @@ primera vez que se ejecuta `app.py`, junto con 3 usuarios de ejemplo (ver
 
 ## 🔑 Acceso
 
-El sistema usa una **clave numérica de 8 dígitos** por usuario (no se expone
-en la interfaz qué representa el número, por diseño). Los roles son:
+El sistema usa una **clave numérica de 8 dígitos** por usuario. Los usuarios nuevos pueden registrarse desde la pantalla de login indicando su nombre, región, localidad y clave de acceso de 8 dígitos. Los roles son:
 
-- `agricultor` — acceso al analizador, historial y dashboard personal
-- `admin` — además accede al panel de administración (gestión de usuarios y
-  estadísticas globales de toda la plataforma)
+- `agricultor` — acceso al analizador, historial y dashboard personal (rol por defecto al registrarse).
+- `admin` — además accede al panel de administración (gestión de usuarios, estadísticas globales, y detalles e historial de todos los usuarios). Solo puede ser asignado por otro admin.
 
 ---
 

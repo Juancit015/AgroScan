@@ -508,7 +508,7 @@ body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--texto);m
 /* ── Admin ── */
 .nav-admin { border: 1px solid rgba(200,169,110,0.4) !important; color: var(--tierra) !important; }
 .nav-admin:hover, .nav-admin.active { background: rgba(200,169,110,0.15) !important; color: var(--tierra) !important; }
-.admin-badge { background: var(--tierra); color: #fff; font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 99px; margin-left: 0.3rem; vertical-align: middle; }
+.admin-badge { background: #6D28D9; color: #fff; font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 99px; margin-left: 0.3rem; vertical-align: middle; box-shadow: 0 2px 5px rgba(109, 40, 217, 0.3); }
 
 .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
 .admin-stat-card { background: #fff; border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border-top: 3px solid var(--verde-claro); }
@@ -538,7 +538,7 @@ body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--texto);m
 .admin-usuario-nombre { font-weight: 600; font-size: 0.95rem; color: var(--texto); overflow-wrap: anywhere; }
 .admin-usuario-meta { font-size: 0.78rem; color: var(--texto-suave); }
 .admin-usuario-rol { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.6rem; border-radius: 99px; white-space: nowrap; }
-.rol-admin      { background: rgba(200,169,110,0.15); color: #92400E; }
+.rol-admin      { background: rgba(109, 40, 217, 0.15); color: #6D28D9; }
 .rol-agricultor { background: rgba(82,183,136,0.12); color: var(--verde-medio); }
 
 .btn-editar { background: transparent; border: 1px solid var(--gris-suave); color: var(--verde-medio); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
@@ -551,3 +551,141 @@ body{font-family:'Inter',sans-serif;background:var(--crema);color:var(--texto);m
 .admin-edit-form { flex-direction: column; gap: 0.6rem; background: var(--crema); border-radius: 8px; padding: 1rem; margin-top: 0.85rem; }
 .admin-edit-form .admin-input { width: 100%; }
 .admin-edit-form .admin-form-btns { width: 100%; }
+
+/* ── Modal de Usuario ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+}
+.modal-contenido {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 2rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-cerrar {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  color: var(--gris-medio);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+}
+.modal-cerrar:hover {
+  color: var(--texto);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--gris-suave);
+}
+.modal-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--verde-claro);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-family: 'Syne', sans-serif;
+  object-fit: cover;
+}
+.modal-header-info h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.3rem;
+  color: var(--verde-profundo);
+  margin-bottom: 0.2rem;
+}
+.modal-header-info p {
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+.modal-historial-vacio {
+  text-align: center;
+  color: var(--texto-suave);
+  padding: 2rem;
+  background: var(--crema);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.modal-historial-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.modal-historial-item {
+  background: var(--crema);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+.modal-historial-item img {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.modal-historial-item-info {
+  flex: 1;
+}
+.modal-historial-item-info h4 {
+  font-family: 'Syne', sans-serif;
+  color: var(--verde-profundo);
+  font-size: 1.05rem;
+  margin-bottom: 0.2rem;
+}
+.admin-usuario-fila-clicable {
+  cursor: pointer;
+}
+
+/* ── Alertas Regionales ── */
+.alerta-regional-banner {
+  background-color: #FEF2F2;
+  border-left: 4px solid #EF4444;
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+}
+.alerta-regional-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: #B91C1C;
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+.alerta-regional-texto {
+  color: #7F1D1D;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0;
+}

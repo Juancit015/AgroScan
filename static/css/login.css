@@ -250,6 +250,61 @@ input[type="text"]:focus {
 
 input[type="text"].error-input { border-color: var(--error); }
 
+/* Select inputs for register */
+.select-input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 2px solid var(--gris-suave);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  color: var(--texto);
+  background: var(--crema);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+.select-input:focus {
+  border-color: var(--verde-claro);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(82,183,136,0.12);
+}
+.select-input:disabled {
+  background: #f0f0f0;
+  color: #a0a0a0;
+  cursor: not-allowed;
+}
+
+#vista-registro .input-wrap input[type="text"] {
+  padding-left: 1rem;
+  letter-spacing: normal;
+}
+#vista-registro #reg-dni {
+  letter-spacing: 2px;
+}
+
+.toggle-form {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--texto-suave);
+}
+.toggle-form a {
+  color: var(--verde-medio);
+  font-weight: 600;
+  text-decoration: none;
+}
+.toggle-form a:hover {
+  text-decoration: underline;
+}
+
+#vista-login, #vista-registro {
+  animation: fadeIn 0.3s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Mensaje de error */
 .mensaje-error {
   display: none;

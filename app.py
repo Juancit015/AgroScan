@@ -68,7 +68,7 @@ PASO 2 — Diagnóstico (solo si es agrícola):
   "zona_afectada": {"x":20,"y":30,"width":40,"height":35,"descripcion":"Zona afectada"},
   "tratamiento": "recomendación concreta",
   "advertencia": "Este diagnóstico es orientativo. Consulta a un ingeniero agrónomo para confirmación.",
-  "fuentes": [{"titulo":"título","url":"https://url.com","institucion":"FAO / SENASA / MINAGRI"}]
+  "fuentes": [{"titulo":"título del documento o guía","institucion":"FAO / SENASA / MINAGRI"}]
 }
 Si no hay enfermedades: "enfermedades"=[] y "zona_afectada"={}
 explicacion: 3-5 observaciones visuales específicas.
@@ -107,6 +107,7 @@ def login():
     session["nombre"]       = usuario["nombre"]
     session["rol"]          = usuario["rol"]
     session["avatar_path"]  = usuario.get("avatar_path")
+    session["localidad"]    = usuario.get("localidad")
     return jsonify({"mensaje": f"Bienvenido, {usuario['nombre']}!",
                     "nombre": usuario["nombre"], "rol": usuario["rol"]})
 
@@ -114,6 +115,35 @@ def login():
 def logout():
     session.clear()
     return jsonify({"mensaje": "Sesión cerrada"})
+
+@app.route("/registro", methods=["POST"])
+def registro():
+    data = request.get_json()
+    nombre = data.get("nombre", "").strip()
+    clave  = data.get("dni", "").strip()
+    region = data.get("region", "").strip()
+    localidad = data.get("localidad", "").strip()
+
+    if not nombre or not clave or not region or not localidad:
+        return jsonify({"error": "Todos los campos son requeridos"}), 400
+    if len(nombre) < 3 or len(nombre) > 30:
+        return jsonify({"error": "El nombre debe tener entre 3 y 30 caracteres"}), 400
+    if len(clave) != 8 or not clave.isdigit():
+        return jsonify({"error": "La clave debe tener exactamente 8 dígitos numéricos"}), 400
+    if nombre_en_uso(nombre):
+        return jsonify({"error": "Ya existe un usuario con ese nombre. Usa uno distinto."}), 409
+
+    resultado = agregar_usuario(nombre, clave, rol="agricultor", region=region, localidad=localidad)
+    if resultado["ok"]:
+        usuario = buscar_usuario_por_dni(clave)
+        session["usuario_id"]   = usuario["id"]
+        session["nombre"]       = usuario["nombre"]
+        session["rol"]          = usuario["rol"]
+        session["avatar_path"]  = usuario.get("avatar_path")
+        session["localidad"]    = usuario.get("localidad")
+        return jsonify({"mensaje": f"¡Registro exitoso! Bienvenido, {usuario['nombre']}!",
+                        "nombre": usuario["nombre"], "rol": usuario["rol"]})
+    return jsonify({"error": resultado.get("error", "Error al registrar")}), 409
 
 @app.route("/analizar", methods=["POST"])
 def analizar():
@@ -175,6 +205,17 @@ def analizar():
         resultado["imagen_path"]  = f"uploads/{filename}"
         resultado["analisis_id"]  = guardar_analisis(session["usuario_id"], resultado,
                                                       imagen_path=resultado["imagen_path"])
+                                                      
+        # Verificar brotes regionales después de guardar
+        enfermedades = resultado.get("enfermedades", [])
+        localidad = session.get("localidad")
+        if enfermedades and localidad:
+            # Importación local para evitar bucles si es necesario, o asume que está arriba.
+            # (database ya está importado en app.py: from database import ...)
+            from database import verificar_brotes_regionales
+            alertas = verificar_brotes_regionales(enfermedades, localidad, dias=7)
+            resultado["alertas_regionales"] = alertas
+
         return jsonify(resultado)
 
     except json.JSONDecodeError:
@@ -256,6 +297,15 @@ NOMBRE_MAX_LEN = 30
 def admin_usuarios():
     return jsonify(obtener_todos_usuarios())
 
+@app.route("/admin/usuarios/<int:uid>/historial")
+@requiere_admin
+def admin_usuario_historial(uid):
+    from database import obtener_detalles_usuario_admin
+    detalles = obtener_detalles_usuario_admin(uid)
+    if not detalles:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+    return jsonify(detalles)
+
 @app.route("/admin/usuarios", methods=["POST"])
 @requiere_admin
 def admin_agregar_usuario():
@@ -263,6 +313,8 @@ def admin_agregar_usuario():
     nombre = data.get("nombre", "").strip()
     clave  = data.get("clave", "").strip()
     rol    = data.get("rol", "agricultor")
+    region = data.get("region", "").strip()
+    localidad = data.get("localidad", "").strip()
 
     if not nombre or not clave:
         return jsonify({"error": "Nombre y clave son requeridos"}), 400
@@ -273,7 +325,7 @@ def admin_agregar_usuario():
     if nombre_en_uso(nombre):
         return jsonify({"error": "Ya existe un usuario con ese nombre. Usa uno distinto (por ejemplo, agrega un apellido o inicial)."}), 409
 
-    resultado = agregar_usuario(nombre, clave, rol)
+    resultado = agregar_usuario(nombre, clave, rol, region, localidad)
     if resultado["ok"]:
         return jsonify({"mensaje": f"Usuario {nombre} creado correctamente"})
     return jsonify({"error": resultado.get("error", "La clave ya está registrada")}), 409
@@ -289,9 +341,11 @@ def admin_editar_usuario(uid):
     data   = request.get_json() or {}
     nombre = data.get("nombre")
     clave  = data.get("clave")
+    region = data.get("region")
+    localidad = data.get("localidad")
 
-    if nombre is None and clave is None:
-        return jsonify({"error": "Indica un nombre y/o una clave nueva"}), 400
+    if nombre is None and clave is None and region is None and localidad is None:
+        return jsonify({"error": "Indica al menos un campo a actualizar"}), 400
 
     if nombre is not None:
         nombre = nombre.strip()
@@ -307,7 +361,7 @@ def admin_editar_usuario(uid):
         if len(clave) != 8 or not clave.isdigit():
             return jsonify({"error": "La clave debe tener exactamente 8 dígitos"}), 400
 
-    resultado = editar_usuario(uid, nombre=nombre, dni=clave)
+    resultado = editar_usuario(uid, nombre=nombre, dni=clave, region=region, localidad=localidad)
     if resultado["ok"]:
         return jsonify({"mensaje": "Usuario actualizado correctamente"})
     return jsonify({"error": resultado.get("error", "No se pudo actualizar el usuario")}), 409

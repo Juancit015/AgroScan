@@ -19,6 +19,30 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 - Rate limiting sobre `/analizar`
 - Expiración explícita de sesión
 
+## [0.8.0] — 2026-06-30
+
+### Agregado
+- **Registro de Usuarios Autogestionado**: Los usuarios ahora pueden registrarse directamente desde la pantalla de login `/login`. Incluye campos para Nombre, Clave (8 dígitos), Región y Localidad.
+- **Datos Geográficos de Usuarios**: Se agregó la funcionalidad de seleccionar Región y Localidad (con menús desplegables en cascada) tanto en el registro como en el panel de administrador, enriqueciendo el perfil del usuario.
+- **Panel de Administración Mejorado**:
+  - Buscador en tiempo real por nombre o DNI.
+  - Filtros por Región y Localidad para encontrar usuarios de zonas específicas.
+  - Al hacer clic en un usuario, se abre un **Modal de Detalles del Usuario** que muestra toda su información (Región, Localidad, Rol) y su **historial detallado de análisis** (imágenes, diagnósticos, confianza, etc.).
+  - **Organización Inteligente**: La lista de usuarios ahora se ordena automáticamente mostrando primero a los Administradores y luego alfabéticamente.
+  - **Identificador de Sesión Activa**: Se resalta al usuario logueado con la etiqueta `(Tú)` y se oculta el botón "Eliminar" en su propia fila para prevenir accidentes.
+
+### Escaneo y Diagnóstico
+- **Alertas Epidemiológicas Regionales**: Sistema de "inteligencia comunitaria". Al finalizar un escaneo, AgroScan verifica en milisegundos si en la misma Localidad del usuario se han reportado múltiples casos de la misma enfermedad en los últimos 7 días. De ser así, despliega una alerta visual preventiva.
+- **Exportación a PDF**: Se incorporó la opción de "Exportar a PDF" el resultado de los análisis. Genera un reporte agronómico formal y maquetado (tamaño A4) ideal para impresión usando `html2pdf.js`.
+- **Fuentes de Búsqueda Confiables**: Se mejoró el prompt de la IA para evitar "alucinaciones" de enlaces caídos. Ahora el sistema extrae el título e institución y construye un acceso rápido y directo mediante *Google Search*.
+
+### Historial del Usuario
+- **Filtro de Cultivos**: Los usuarios ahora pueden filtrar dinámicamente su lista de análisis históricos mediante un menú desplegable que detecta y agrupa automáticamente los tipos de cultivo analizados.
+
+### Diseño
+- **Insignia de Administrador**: Se actualizó el color del rol Admin en toda la plataforma a un púrpura intenso (`#6D28D9`), creando un mayor contraste frente a la paleta verde/tierra predominante y facilitando su distinción rápida en la tabla.
+- **Endpoint `/admin/usuarios/<uid>/historial`**: Permite al administrador consultar el perfil y todos los análisis pasados de un usuario específico de manera remota.
+
 ---
 
 ## [0.7.0] — 2026-06-21

@@ -84,3 +84,135 @@ function setEstadoCargando(cargando) {
   spinner.style.display   = cargando ? 'block' : 'none';
   btnTexto.textContent    = cargando ? 'Verificando...' : 'Ingresar al sistema';
 }
+
+// ── Lógica de Registro ──────────────────────────────────────────
+const vistaLogin    = document.getElementById('vista-login');
+const vistaRegistro = document.getElementById('vista-registro');
+const linkRegistro  = document.getElementById('link-registro');
+const linkLogin     = document.getElementById('link-login');
+
+if (linkRegistro && linkLogin) {
+  linkRegistro.addEventListener('click', (e) => {
+    e.preventDefault();
+    vistaLogin.style.display = 'none';
+    vistaRegistro.style.display = 'block';
+  });
+
+  linkLogin.addEventListener('click', (e) => {
+    e.preventDefault();
+    vistaRegistro.style.display = 'none';
+    vistaLogin.style.display = 'block';
+  });
+}
+
+const regionesData = {
+  "La Libertad": ["Paiján", "Trujillo", "Chepén", "Pacasmayo", "Ascope"],
+  "Lima": ["Lima Central", "Cañete", "Huaral", "Barranca", "Huaura"],
+  "Piura": ["Piura", "Sullana", "Paita", "Talara", "Sechura"],
+  "Ica": ["Ica", "Chincha", "Pisco", "Nazca", "Palpa"],
+  "Cusco": ["Cusco", "Urubamba", "Quillabamba", "Sicuani", "Calca"],
+  "Arequipa": ["Arequipa", "Camaná", "Mollendo", "Chivay", "Caravelí"]
+};
+
+const selectRegion = document.getElementById('reg-region');
+const selectLocalidad = document.getElementById('reg-localidad');
+
+if (selectRegion && selectLocalidad) {
+  // Poblar regiones
+  for (const region in regionesData) {
+    const opt = document.createElement('option');
+    opt.value = region;
+    opt.textContent = region;
+    selectRegion.appendChild(opt);
+  }
+
+  selectRegion.addEventListener('change', function() {
+    const region = this.value;
+    selectLocalidad.innerHTML = '<option value="">Selecciona tu localidad...</option>';
+    
+    if (region && regionesData[region]) {
+      selectLocalidad.disabled = false;
+      regionesData[region].forEach(loc => {
+        const opt = document.createElement('option');
+        opt.value = loc;
+        opt.textContent = loc;
+        selectLocalidad.appendChild(opt);
+      });
+    } else {
+      selectLocalidad.disabled = true;
+      selectLocalidad.innerHTML = '<option value="">Primero selecciona región</option>';
+    }
+  });
+}
+
+const regNombre = document.getElementById('reg-nombre');
+const regDni = document.getElementById('reg-dni');
+const btnRegistrar = document.getElementById('btn-registrar');
+const regSpinner = document.getElementById('reg-spinner');
+const regBtnTexto = document.getElementById('reg-btn-texto');
+const regErrorMsg = document.getElementById('reg-error-msg');
+const regErrorTexto = document.getElementById('reg-error-texto');
+
+if (regDni && regNombre && btnRegistrar) {
+  regDni.addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '');
+    regErrorMsg.classList.remove('visible');
+  });
+  regNombre.addEventListener('input', () => regErrorMsg.classList.remove('visible'));
+
+  btnRegistrar.addEventListener('click', async () => {
+    const nombre = regNombre.value.trim();
+    const region = selectRegion.value;
+    const localidad = selectLocalidad.value;
+    const dni = regDni.value.trim();
+
+    if (!nombre || !region || !localidad || !dni) {
+      mostrarErrorReg('Todos los campos son obligatorios');
+      return;
+    }
+    if (nombre.length < 3) {
+      mostrarErrorReg('El nombre debe tener al menos 3 caracteres');
+      return;
+    }
+    if (dni.length !== 8) {
+      mostrarErrorReg('La clave debe tener 8 dígitos');
+      return;
+    }
+
+    btnRegistrar.disabled = true;
+    regSpinner.style.display = 'block';
+    regBtnTexto.textContent = 'Registrando...';
+    regErrorMsg.classList.remove('visible');
+
+    try {
+      const res = await fetch('/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, region, localidad, dni })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        regBtnTexto.textContent = '¡Registro exitoso!';
+        regSpinner.style.display = 'none';
+        btnRegistrar.style.background = '#2D6A4F';
+        setTimeout(() => { window.location.href = '/'; }, 800);
+      } else {
+        mostrarErrorReg(data.error || 'Error al registrar');
+        btnRegistrar.disabled = false;
+        regSpinner.style.display = 'none';
+        regBtnTexto.textContent = 'Crear cuenta';
+      }
+    } catch (err) {
+      mostrarErrorReg('Error de conexión');
+      btnRegistrar.disabled = false;
+      regSpinner.style.display = 'none';
+      regBtnTexto.textContent = 'Crear cuenta';
+    }
+  });
+}
+
+function mostrarErrorReg(mensaje) {
+  regErrorTexto.textContent = mensaje;
+  regErrorMsg.classList.add('visible');
+}

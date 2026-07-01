@@ -3,11 +3,41 @@
 // 'warning'|'info', 'Título', 'Descripción opcional', duraciónMs).
 // Estilo "logro desbloqueado": entra deslizando desde la esquina, barra
 // de progreso de auto-cierre, y botón para cerrar manualmente.
+//
+// Cola con tope de visibles: si se generan muchas notificaciones de
+// golpe (ej. spam de clics en "Tomar foto" sin cámara), crear y animar
+// docenas de elementos DOM en el mismo instante satura el hilo principal
+// — el reloj de las animaciones CSS sigue corriendo en tiempo real
+// aunque el navegador esté ocupado, así que para cuando por fin pinta un
+// frame, varias animaciones ya "vencieron" sin haberse visto nunca en
+// pantalla (se ven saltar directo al estado final). Limitar cuántos
+// toasts existen a la vez evita esa saturación de raíz, además de ser
+// mejor UX: una pared de 20 notificaciones apiladas nunca es legible.
 const TOAST_ICONOS = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+// Duración por defecto según tipo: las advertencias suelen traer texto
+// más largo que conviene dar tiempo a leer (ej. "no se detectó cámara"),
+// así que se quedan más tiempo en pantalla que un éxito/info rápido.
+const TOAST_DURACION_POR_DEFECTO = { warning: 15000, error: 8000, success: 5000, info: 5000 };
+const TOAST_MAX_VISIBLES = 3;
 const toastContainer = document.getElementById('toast-container');
+const colaToasts = [];
+let toastsVisiblesActuales = 0;
 
-function mostrarToast(tipo, titulo, descripcion = '', duracionMs = 5000) {
+function mostrarToast(tipo, titulo, descripcion = '', duracionMs = null) {
   if (!toastContainer) return;
+  colaToasts.push({ tipo, titulo, descripcion, duracionMs });
+  procesarColaToasts();
+}
+
+function procesarColaToasts() {
+  while (toastsVisiblesActuales < TOAST_MAX_VISIBLES && colaToasts.length > 0) {
+    crearToast(colaToasts.shift());
+  }
+}
+
+function crearToast({ tipo, titulo, descripcion, duracionMs }) {
+  toastsVisiblesActuales++;
+  const duracionTotal = duracionMs ?? TOAST_DURACION_POR_DEFECTO[tipo] ?? 5000;
 
   const toast = document.createElement('div');
   toast.className = `toast ${tipo}`;
@@ -18,20 +48,68 @@ function mostrarToast(tipo, titulo, descripcion = '', duracionMs = 5000) {
       ${descripcion ? `<div class="toast-descripcion">${escaparHtml(descripcion)}</div>` : ''}
     </div>
     <button class="toast-cerrar" type="button" aria-label="Cerrar notificación">✕</button>
-    <div class="toast-progreso" style="animation-duration:${duracionMs}ms"></div>
+    <div class="toast-progreso" style="animation-duration:${duracionTotal}ms"></div>
   `;
 
+  const barraProgreso = toast.querySelector('.toast-progreso');
+  let temporizador = null;
+  let restante = duracionTotal;
+  let inicio = 0;
+  let cerrado = false; // evita que cerrar() se ejecute dos veces para el mismo toast
+
   const cerrar = () => {
+    if (cerrado) return;
+    cerrado = true;
+    clearTimeout(temporizador);
     toast.classList.add('saliendo');
-    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+
+    // Eliminación garantizada aunque animationend no dispare (bajo carga
+    // el navegador puede retrasarse). IMPORTANTE: filtramos por nombre de
+    // animación porque con { once: true } genérico el evento de ENTRADA
+    // (toastIn, 350ms) dispara primero si cerrar() se llama mientras la
+    // entrada aún corre — causando la desaparición instantánea reportada.
+    const DURACION_ANIMACION_SALIDA_MS = 350; // 0.25s + margen generoso
+    const fallback = setTimeout(eliminar, DURACION_ANIMACION_SALIDA_MS);
+
+    function eliminar() {
+      clearTimeout(fallback);
+      toast.removeEventListener('animationend', onAnimEnd); // limpieza
+      if (!toast.isConnected) return;
+      toast.remove();
+      toastsVisiblesActuales = Math.max(0, toastsVisiblesActuales - 1);
+      procesarColaToasts();
+    }
+
+    // NO usar { once: true } aquí: necesitamos filtrar por animationName
+    // para ignorar el evento de toastIn y solo reaccionar a toastOut.
+    function onAnimEnd(e) {
+      if (e.animationName === 'toastOut') eliminar();
+    }
+    toast.addEventListener('animationend', onAnimEnd);
+  };
+
+  const iniciarTemporizador = () => {
+    inicio = Date.now();
+    temporizador = setTimeout(cerrar, restante);
+    barraProgreso.style.animationPlayState = 'running';
+  };
+
+  // Al pausar, se descuenta el tiempo ya transcurrido del restante, así
+  // que al reanudar el cierre ocurre exactamente cuando debía (y la
+  // barra de progreso se congela/descongela en el mismo instante real,
+  // quedando siempre sincronizada con el temporizador real).
+  const pausarTemporizador = () => {
+    clearTimeout(temporizador);
+    restante -= Date.now() - inicio;
+    barraProgreso.style.animationPlayState = 'paused';
   };
 
   toast.querySelector('.toast-cerrar').addEventListener('click', cerrar);
-  const temporizador = setTimeout(cerrar, duracionMs);
-  // Pausar el auto-cierre mientras el usuario tiene el cursor encima
-  toast.addEventListener('mouseenter', () => clearTimeout(temporizador));
+  toast.addEventListener('mouseenter', pausarTemporizador);
+  toast.addEventListener('mouseleave', iniciarTemporizador);
 
   toastContainer.appendChild(toast);
+  iniciarTemporizador();
 }
 
 function escaparHtml(texto) {
@@ -201,7 +279,42 @@ const btnTomarFoto  = document.getElementById('btn-tomar-foto');
 
 const esMovil = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
+// ── Bloqueo de controles durante captura/análisis ───────────────────
+// Mientras haya una captura o un análisis en curso, todos los controles
+// que podrían iniciar OTRO proceso quedan deshabilitados. Esto evita por
+// completo la condición de carrera: sin esto, el usuario podía pulsar
+// "Nueva foto" o "Tomar foto" mientras la petición anterior seguía en
+// vuelo, y cuando esa respuesta tardía llegaba, sobrescribía a la fuerza
+// lo que el usuario ya había hecho mientras tanto (resultado viejo +
+// "Cámara no iniciada" mostrados a la vez).
+let analisisEnCurso = false;
+let solicitudActual = 0; // se incrementa en cada análisis; sirve para
+                          // descartar respuestas que ya quedaron obsoletas
+
+const labelGaleria = document.querySelector('label[for="input-galeria"]');
+
+function bloquearControlesCaptura(bloqueado) {
+  analisisEnCurso = bloqueado;
+  btnTomarFoto.disabled  = bloqueado;
+  inputCamara.disabled   = bloqueado;
+  inputGaleria.disabled  = bloqueado;
+  btnReiniciar.disabled  = bloqueado;
+  labelGaleria?.classList.toggle('deshabilitada', bloqueado);
+
+  // Feedback claro de estado: durante el análisis el botón "Nueva foto"
+  // cambia a "Analizando…" para que el usuario entienda por qué no
+  // responde — no simplemente se ve apagado sin explicación.
+  if (bloqueado) {
+    btnReiniciar.dataset.textoOriginal = btnReiniciar.textContent;
+    btnReiniciar.textContent = '⏳ Analizando…';
+  } else if (btnReiniciar.dataset.textoOriginal) {
+    btnReiniciar.textContent = btnReiniciar.dataset.textoOriginal;
+    delete btnReiniciar.dataset.textoOriginal;
+  }
+}
+
 btnTomarFoto.addEventListener('click', async () => {
+  if (analisisEnCurso) return; // defensa adicional, el botón ya estaría disabled
   if (esMovil) {
     inputCamara.click();
     return;
@@ -238,7 +351,7 @@ async function abrirCamaraEscritorio() {
 }
 
 function manejarArchivoSeleccionado(file) {
-  if (!file) return;
+  if (!file || analisisEnCurso) return; // ignora selecciones mientras ya hay un proceso activo
   const reader = new FileReader();
   reader.onload = ev => {
     const b64 = ev.target.result;
@@ -257,6 +370,7 @@ inputGaleria.addEventListener('change', e => manejarArchivoSeleccionado(e.target
 btnReiniciar.addEventListener('click', reiniciar);
 
 function reiniciar() {
+  if (analisisEnCurso) return; // btnReiniciar ya estaría disabled; defensa extra
   preview.style.display      = 'none';
   placeholder.style.display  = 'flex';
   overlay.style.display      = 'none';
@@ -270,6 +384,9 @@ function reiniciar() {
 
 // ── Analizar imagen ──────────────────────────────────────────────
 async function analizarImagen(b64) {
+  const miSolicitud = ++solicitudActual;
+  bloquearControlesCaptura(true);
+
   overlay.style.display     = 'flex';
   zonaOverlay.style.display = 'none';
   zonaDescDiv.style.display = 'none';
@@ -282,21 +399,31 @@ async function analizarImagen(b64) {
       body: JSON.stringify({ imagen: b64 })
     });
     const data = await res.json();
-    overlay.style.display = 'none';
 
+    // Guarda de seguridad: si mientras esta petición estaba en vuelo se
+    // disparó OTRA más reciente (no debería poder pasar con los controles
+    // bloqueados, pero se deja como defensa en profundidad), se descarta
+    // esta respuesta obsoleta para que nunca pise el estado actual.
+    if (miSolicitud !== solicitudActual) return;
+
+    overlay.style.display = 'none';
     if (!res.ok)              { mostrarError(data.error || 'Error al analizar.'); return; }
     if (data.valido === false) { mostrarInvalido(); return; }
 
     mostrarResultado(data);
     cargarEstadoSistema(); // refresca "última respuesta" y total de análisis
   } catch {
+    if (miSolicitud !== solicitudActual) return;
     overlay.style.display = 'none';
     mostrarError('Error de conexión con el servidor.');
+  } finally {
+    if (miSolicitud === solicitudActual) bloquearControlesCaptura(false);
   }
 }
 
 // ── Mostrar resultado ────────────────────────────────────────────
 function mostrarResultado(data) {
+  window.ultimoDiagnosticoData = data;
   ocultarTodos();
   document.getElementById('resultado-contenido').style.display = 'flex';
 
@@ -313,6 +440,25 @@ function mostrarResultado(data) {
   const bloqSano = document.getElementById('bloque-sano');
   const contEnf  = document.getElementById('res-enfermedades');
   contEnf.innerHTML = '';
+  
+  // Alertas Regionales
+  const alertasContainer = document.getElementById('alertas-regionales-container');
+  if (data.alertas_regionales && data.alertas_regionales.length > 0) {
+    alertasContainer.style.display = 'block';
+    alertasContainer.innerHTML = data.alertas_regionales.map(alerta => `
+      <div class="alerta-regional-banner">
+        <div class="alerta-regional-header">
+          <span>🚨</span> Alerta en tu zona
+        </div>
+        <p class="alerta-regional-texto">
+          Hemos detectado <strong>${alerta.casos} casos</strong> recientes de <strong>${alerta.enfermedad}</strong> en <strong>${alerta.localidad}</strong> durante los últimos ${alerta.dias} días. Te recomendamos aplicar medidas preventivas y avisar a tu comunidad.
+        </p>
+      </div>
+    `).join('');
+  } else {
+    alertasContainer.style.display = 'none';
+    alertasContainer.innerHTML = '';
+  }
 
   if (enfs.length > 0) {
     bloqEnf.style.display  = 'block';
@@ -356,16 +502,125 @@ function mostrarResultado(data) {
     }
   }
 
-  // Fuentes
+// Fuentes
   const fuentes = data.fuentes || [];
-  const contF   = document.getElementById('res-fuentes');
-  contF.innerHTML = '';
-  fuentes.forEach(f => {
-    contF.innerHTML += `
-      <a class="fuente-link" href="${f.url}" target="_blank" rel="noopener">
-        <span class="fuente-institucion">${f.institucion}</span>
-        <span class="fuente-titulo">${f.titulo}</span>
-      </a>`;
+  const fuentesDiv = document.getElementById('res-fuentes');
+  fuentesDiv.innerHTML = fuentes.map(f => {
+    // La IA suele alucinar URLs que están rotas o no existen. 
+    // En su lugar, construimos una búsqueda directa en Google con el título y la institución.
+    const query = encodeURIComponent(`${f.institucion} ${f.titulo}`);
+    const searchUrl = `https://www.google.com/search?q=${query}`;
+    return `
+      <a href="${searchUrl}" target="_blank" class="fuente-link" title="Buscar documento en Google">
+        <span class="fuente-inst">${f.institucion}</span>
+        <span class="fuente-titulo">🔍 ${f.titulo}</span>
+      </a>
+    `;
+  }).join('');
+}
+
+// ── Exportar a PDF ───────────────────────────────────────────────
+function descargarPDF() {
+  const data = window.ultimoDiagnosticoData;
+  if (!data) return;
+
+  const btn = document.getElementById('btn-descargar-pdf');
+  btn.textContent = 'Generando...';
+  btn.disabled = true;
+
+  // Crear un contenedor invisible para la plantilla del PDF
+  const container = document.createElement('div');
+  container.style.padding = '40px';
+  container.style.fontFamily = "'Inter', sans-serif";
+  container.style.color = '#1A1A1A';
+  container.style.background = '#FFFFFF';
+  
+  // Encabezado
+  let html = `
+    <div style="border-bottom: 3px solid #52B788; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="font-family: 'Syne', sans-serif; font-size: 24px; color: #1B4332; margin: 0;">🌱 AgroScan</h1>
+        <p style="margin: 5px 0 0 0; color: #6B7280; font-size: 14px;">Reporte de Diagnóstico Agronómico</p>
+      </div>
+      <div style="text-align: right; color: #6B7280; font-size: 12px;">
+        Fecha: ${new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+      </div>
+    </div>
+  `;
+
+  // Imagen y Datos Principales
+  const imgSrc = document.getElementById('preview').src;
+  html += `
+    <div style="display: flex; gap: 30px; margin-bottom: 30px;">
+      <div style="flex: 0 0 250px;">
+        <img src="${imgSrc}" style="width: 100%; border-radius: 8px; border: 1px solid #E4E0D8;" />
+      </div>
+      <div style="flex: 1;">
+        <h2 style="font-family: 'Syne', sans-serif; font-size: 22px; color: #1B4332; margin: 0 0 10px 0;">${data.cultivo || 'Cultivo Desconocido'}</h2>
+        <p style="margin: 0 0 5px 0; font-size: 14px;"><strong>Estado de maduración:</strong> ${data.maduracion || '—'}</p>
+        <p style="margin: 0 0 15px 0; font-size: 14px;"><strong>Confianza de la IA:</strong> ${data.confianza}%</p>
+  `;
+
+  if (data.enfermedades && data.enfermedades.length > 0) {
+    html += `<h3 style="font-size: 16px; color: #DC2626; margin: 0 0 10px 0;">⚠️ Enfermedades Detectadas</h3><ul style="margin: 0; padding-left: 20px; font-size: 14px;">`;
+    data.enfermedades.forEach(e => {
+      html += `<li style="margin-bottom: 5px;"><strong>${e.nombre}</strong> (${e.severidad})</li>`;
+    });
+    html += `</ul>`;
+  } else {
+    html += `<p style="color: #16A34A; font-weight: 600; font-size: 14px;">✅ Cultivo en buen estado. No se detectaron enfermedades.</p>`;
+  }
+
+  html += `</div></div>`;
+
+  // Explicación
+  if (data.explicacion && data.explicacion.length > 0) {
+    html += `
+      <div style="margin-bottom: 30px;">
+        <h3 style="font-size: 16px; color: #2D6A4F; margin: 0 0 10px 0;">🔬 Observaciones Visuales</h3>
+        <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #4B5563;">
+    `;
+    data.explicacion.forEach(ex => {
+      html += `<li style="margin-bottom: 5px;">${ex}</li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  // Tratamiento
+  if (data.tratamiento) {
+    html += `
+      <div style="background: #F7F3EC; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+        <h3 style="font-size: 16px; color: #1B4332; margin: 0 0 10px 0;">💊 Tratamiento Recomendado</h3>
+        <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #1A1A1A;">${data.tratamiento}</p>
+      </div>
+    `;
+  }
+
+  // Footer Disclaimer
+  html += `
+    <div style="border-top: 1px solid #E4E0D8; padding-top: 15px; margin-top: 40px; font-size: 11px; color: #9CA3AF; text-align: center;">
+      ${data.advertencia || 'Este diagnóstico es orientativo. Consulta a un ingeniero agrónomo para confirmación.'}
+      <br><br>Generado automáticamente por la plataforma AgroScan.
+    </div>
+  `;
+
+  container.innerHTML = html;
+
+  const opt = {
+    margin:       [10, 10, 10, 10], // Margen en mm
+    filename:     `AgroScan_Reporte_${(data.cultivo || 'Cultivo').replace(/\s+/g, '_')}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(container).save().then(() => {
+    btn.textContent = '📄 Exportar a PDF';
+    btn.disabled = false;
+  }).catch(() => {
+    btn.textContent = '📄 Exportar a PDF';
+    btn.disabled = false;
+    mostrarToast('error', 'Error al exportar', 'Hubo un problema al generar el PDF.');
   });
 }
 
@@ -396,43 +651,70 @@ function mostrarError(msg)    {
 }
 
 // ── Historial ────────────────────────────────────────────────────
+function renderHistorial() {
+  const lista = document.getElementById('historial-lista');
+  const filtroVal = document.getElementById('historial-filtro-cultivo').value;
+  const data = window.historialData || [];
+
+  const filtrados = filtroVal ? data.filter(item => (item.cultivo || 'Desconocido') === filtroVal) : data;
+
+  if (!filtrados.length) { 
+    lista.innerHTML = '<div class="cargando">No hay análisis para este cultivo.</div>'; 
+    return; 
+  }
+
+  lista.innerHTML = filtrados.map(item => {
+    const imgHtml = item.imagen_path
+      ? `<div class="historial-img-wrap"><img src="/static/${item.imagen_path}" alt="${item.cultivo}" class="historial-img"/></div>`
+      : `<div class="historial-img-wrap historial-img-placeholder">📷</div>`;
+
+    const enfsHtml = (item.enfermedades||[]).map(e =>
+      `<span class="historial-enfermedad-tag">⚠️ ${e.nombre}</span>`
+    ).join('') || '<span class="historial-enfermedad-tag historial-tag-sano">✅ Sano</span>';
+
+    return `
+      <div class="historial-card">
+        ${imgHtml}
+        <div class="historial-info">
+          <div class="historial-card-header">
+            <div class="historial-cultivo">${item.cultivo || 'Desconocido'}</div>
+            <div class="historial-fecha">${formatearFecha(item.fecha)}</div>
+          </div>
+          <div class="historial-maduracion">${item.maduracion || '—'}</div>
+          <div class="historial-confianza-wrap">
+            <div class="confianza-track historial-confianza-track">
+              <div class="confianza-fill ${item.confianza >= 80 ? 'verde' : item.confianza >= 60 ? 'amarillo' : 'rojo'}"
+                   style="width:${item.confianza||0}%"></div>
+            </div>
+            <span class="historial-confianza-pct">${item.confianza||0}%</span>
+          </div>
+          <div>${enfsHtml}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 async function cargarHistorial() {
   const lista = document.getElementById('historial-lista');
   lista.innerHTML = '<div class="cargando">Cargando historial...</div>';
   try {
     const res  = await fetch('/historial');
     const data = await res.json();
-    if (!data.length) { lista.innerHTML = '<div class="cargando">No hay análisis guardados aún.</div>'; return; }
+    
+    window.historialData = data;
+    
+    if (!data.length) { 
+      lista.innerHTML = '<div class="cargando">No hay análisis guardados aún.</div>'; 
+      return; 
+    }
 
-    lista.innerHTML = data.map(item => {
-      const imgHtml = item.imagen_path
-        ? `<div class="historial-img-wrap"><img src="/static/${item.imagen_path}" alt="${item.cultivo}" class="historial-img"/></div>`
-        : `<div class="historial-img-wrap historial-img-placeholder">📷</div>`;
+    // Poblar el select con cultivos únicos
+    const select = document.getElementById('historial-filtro-cultivo');
+    const cultivosUnicos = [...new Set(data.map(item => item.cultivo || 'Desconocido'))].sort();
+    select.innerHTML = '<option value="">Todos los cultivos</option>' + 
+                       cultivosUnicos.map(c => `<option value="${c}">${c}</option>`).join('');
 
-      const enfsHtml = (item.enfermedades||[]).map(e =>
-        `<span class="historial-enfermedad-tag">⚠️ ${e.nombre}</span>`
-      ).join('') || '<span class="historial-enfermedad-tag historial-tag-sano">✅ Sano</span>';
-
-      return `
-        <div class="historial-card">
-          ${imgHtml}
-          <div class="historial-info">
-            <div class="historial-card-header">
-              <div class="historial-cultivo">${item.cultivo || 'Desconocido'}</div>
-              <div class="historial-fecha">${formatearFecha(item.fecha)}</div>
-            </div>
-            <div class="historial-maduracion">${item.maduracion || '—'}</div>
-            <div class="historial-confianza-wrap">
-              <div class="confianza-track historial-confianza-track">
-                <div class="confianza-fill ${item.confianza >= 80 ? 'verde' : item.confianza >= 60 ? 'amarillo' : 'rojo'}"
-                     style="width:${item.confianza||0}%"></div>
-              </div>
-              <span class="historial-confianza-pct">${item.confianza||0}%</span>
-            </div>
-            <div>${enfsHtml}</div>
-          </div>
-        </div>`;
-    }).join('');
+    renderHistorial();
   } catch { lista.innerHTML = '<div class="cargando">Error al cargar historial.</div>'; }
 }
 
@@ -485,17 +767,53 @@ async function cargarDashboard() {
       document.getElementById('chart-enfermedades').parentElement.innerHTML = '<p class="cargando">Sin enfermedades registradas aún.</p>';
     }
 
-    // 3. Cultivos
+    // 3. Cultivos — Top 5 + "Otros" (patrón estándar de dashboards escalables)
     if (chartCultivos) chartCultivos.destroy();
     const cultivos = data.por_cultivo;
     if (cultivos.length > 0) {
+      // "Otros" recibe un gris neutro para que quede visualmente claro que
+      // es una agregación y no un cultivo real con identidad propia.
+      const coloresCultivos = cultivos.map((c, i) =>
+        c.cultivo === 'Otros' ? '#9CA3AF' : PALETTE[i % PALETTE.length]
+      );
+
+      // Si hay "Otros", mostramos una nota informativa debajo del gráfico
+      // con cuántos tipos agrupa — información útil que no cabe en el chart.
+      const nOtros = cultivos.find(c => c.cultivo === 'Otros')?._n_otros;
+      const notaEl = document.getElementById('chart-cultivos-nota');
+      if (notaEl) notaEl.textContent = nOtros
+        ? `Agrupa ${nOtros} tipo${nOtros > 1 ? 's' : ''} de cultivo con menor frecuencia.`
+        : '';
+
       chartCultivos = new Chart(document.getElementById('chart-cultivos'), {
         type: 'doughnut',
         data: {
           labels: cultivos.map(c => c.cultivo),
-          datasets: [{ data: cultivos.map(c => c.cantidad), backgroundColor: PALETTE, borderWidth: 0, hoverOffset: 6 }]
+          datasets: [{
+            data: cultivos.map(c => c.cantidad),
+            backgroundColor: coloresCultivos,
+            borderWidth: 0,
+            hoverOffset: 6
+          }]
         },
-        options: { ...baseOpts, cutout: '55%' }
+        options: {
+          ...baseOpts,
+          cutout: '55%',
+          plugins: {
+            ...baseOpts.plugins,
+            tooltip: {
+              callbacks: {
+                // Añade contexto extra en "Otros": "X tipos con menor frecuencia"
+                afterLabel: (ctx) => {
+                  const item = cultivos[ctx.dataIndex];
+                  return item._n_otros
+                    ? `(${item._n_otros} tipo${item._n_otros > 1 ? 's' : ''} agrupados)`
+                    : '';
+                }
+              }
+            }
+          }
+        }
       });
     } else {
       document.getElementById('chart-cultivos').parentElement.innerHTML = '<p class="cargando">Sin datos aún.</p>';
@@ -541,6 +859,17 @@ function formatearDia(d) {
 // ── Admin ─────────────────────────────────────────────────────────
 const esAdmin = document.querySelector('.nav-admin') !== null;
 
+let adminUsersCache = []; // Caché para búsqueda y filtros locales
+
+const regionesDataAdmin = {
+  "La Libertad": ["Paiján", "Trujillo", "Chepén", "Pacasmayo", "Ascope"],
+  "Lima": ["Lima Central", "Cañete", "Huaral", "Barranca", "Huaura"],
+  "Piura": ["Piura", "Sullana", "Paita", "Talara", "Sechura"],
+  "Ica": ["Ica", "Chincha", "Pisco", "Nazca", "Palpa"],
+  "Cusco": ["Cusco", "Urubamba", "Quillabamba", "Sicuani", "Calca"],
+  "Arequipa": ["Arequipa", "Camaná", "Mollendo", "Chivay", "Caravelí"]
+};
+
 if (esAdmin) {
   document.getElementById('btn-nuevo-usuario')?.addEventListener('click', () => {
     document.getElementById('admin-form').style.display = 'flex';
@@ -555,9 +884,50 @@ if (esAdmin) {
 
   document.getElementById('btn-guardar-usuario')?.addEventListener('click', guardarUsuario);
 
+  // Filtros y buscador
+  document.getElementById('admin-buscar')?.addEventListener('input', renderUsuariosFiltrados);
+  document.getElementById('admin-filtro-region')?.addEventListener('change', function() {
+    const region = this.value;
+    const locSelect = document.getElementById('admin-filtro-localidad');
+    locSelect.innerHTML = '<option value="">Todas las localidades</option>';
+    if (region && regionesDataAdmin[region]) {
+      locSelect.disabled = false;
+      regionesDataAdmin[region].forEach(loc => locSelect.innerHTML += `<option value="${loc}">${loc}</option>`);
+    } else {
+      locSelect.disabled = true;
+    }
+    renderUsuariosFiltrados();
+  });
+  document.getElementById('admin-filtro-localidad')?.addEventListener('change', renderUsuariosFiltrados);
+
+  // Poblar regiones en los select de filtro y formulario
+  const selectRegFiltro = document.getElementById('admin-filtro-region');
+  const selectRegForm = document.getElementById('form-region');
+  for (const region in regionesDataAdmin) {
+    if(selectRegFiltro) selectRegFiltro.innerHTML += `<option value="${region}">${region}</option>`;
+    if(selectRegForm) selectRegForm.innerHTML += `<option value="${region}">${region}</option>`;
+  }
+
+  selectRegForm?.addEventListener('change', function() {
+    const region = this.value;
+    const locSelect = document.getElementById('form-localidad');
+    locSelect.innerHTML = '<option value="">Localidad...</option>';
+    if (region && regionesDataAdmin[region]) {
+      locSelect.disabled = false;
+      regionesDataAdmin[region].forEach(loc => locSelect.innerHTML += `<option value="${loc}">${loc}</option>`);
+    } else {
+      locSelect.disabled = true;
+    }
+  });
+
   // Solo números en clave
   document.getElementById('form-clave')?.addEventListener('input', function() {
     this.value = this.value.replace(/\D/g, '');
+  });
+  
+  // Cerrar modal
+  document.getElementById('btn-cerrar-modal')?.addEventListener('click', () => {
+    document.getElementById('modal-usuario').style.display = 'none';
   });
 }
 
@@ -606,38 +976,130 @@ async function cargarAdminUsuarios() {
   const lista = document.getElementById('admin-usuarios-lista');
   try {
     const res   = await fetch('/admin/usuarios');
-    const users = await res.json();
+    adminUsersCache = await res.json();
+    renderUsuariosFiltrados();
+  } catch { lista.innerHTML = '<div class="cargando">Error al cargar usuarios.</div>'; }
+}
 
-    lista.innerHTML = users.map(u => `
-      <div class="admin-usuario-row" id="user-row-${u.id}">
-        <div class="admin-usuario-fila">
-          <div class="admin-usuario-info">
-            <div class="admin-usuario-nombre">${escaparHtml(u.nombre)}</div>
-            <div class="admin-usuario-meta">
-              ${u.total_analisis} análisis
-              ${u.ultimo_analisis ? '· último: ' + formatearFecha(u.ultimo_analisis) : '· sin análisis'}
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:0.5rem;">
-            <span class="admin-usuario-rol rol-${u.rol}">${u.rol === 'admin' ? '⚙️ Admin' : '🌱 Agricultor'}</span>
-            <button class="btn-editar" data-uid="${u.id}" onclick="toggleEditarUsuario(${u.id})">Editar</button>
-            <button class="btn-eliminar" data-uid="${u.id}" data-nombre="${escaparHtml(u.nombre)}" onclick="eliminarUsuario(${u.id}, this.dataset.nombre)">Eliminar</button>
+function renderUsuariosFiltrados() {
+  const lista = document.getElementById('admin-usuarios-lista');
+  if(!lista) return;
+  const textoBusqueda = (document.getElementById('admin-buscar')?.value || '').toLowerCase();
+  const filtroRegion = document.getElementById('admin-filtro-region')?.value || '';
+  const filtroLocalidad = document.getElementById('admin-filtro-localidad')?.value || '';
+  
+  // Obtener el nombre del admin actual para mostrar "(Tú)"
+  // Extraemos el primer nodo de texto de .usuario-nombre para evitar el badge
+  const elemNombre = document.querySelector('.usuario-nombre');
+  const nombreAdminActual = elemNombre ? elemNombre.childNodes[0].textContent.trim() : '';
+
+  let filtrados = adminUsersCache.filter(u => {
+    const coincideTexto = u.nombre.toLowerCase().includes(textoBusqueda) || u.dni.includes(textoBusqueda);
+    const coincideRegion = !filtroRegion || u.region === filtroRegion;
+    const coincideLocalidad = !filtroLocalidad || u.localidad === filtroLocalidad;
+    return coincideTexto && coincideRegion && coincideLocalidad;
+  });
+
+  // Ordenar: Admins primero, luego orden alfabético
+  filtrados.sort((a, b) => {
+    if (a.rol === 'admin' && b.rol !== 'admin') return -1;
+    if (a.rol !== 'admin' && b.rol === 'admin') return 1;
+    return a.nombre.localeCompare(b.nombre);
+  });
+
+  if (filtrados.length === 0) {
+    lista.innerHTML = '<div class="cargando">No se encontraron usuarios.</div>';
+    return;
+  }
+
+  lista.innerHTML = filtrados.map(u => {
+    const esElMismo = (u.nombre === nombreAdminActual);
+    const badgeTu = esElMismo ? ' <span style="font-size:0.8rem;color:var(--verde-medio);font-weight:700;">(Tú)</span>' : '';
+    
+    return `
+    <div class="admin-usuario-row" id="user-row-${u.id}">
+      <div class="admin-usuario-fila" onclick="abrirDetallesUsuario(event, ${u.id})" style="cursor: pointer;">
+        <div class="admin-usuario-info">
+          <div class="admin-usuario-nombre">${escaparHtml(u.nombre)}${badgeTu}</div>
+          <div class="admin-usuario-meta">
+            ${u.region && u.localidad ? u.localidad + ', ' + u.region + ' · ' : ''}
+            ${u.total_analisis} análisis
+            ${u.ultimo_analisis ? '· último: ' + formatearFecha(u.ultimo_analisis) : '· sin análisis'}
           </div>
         </div>
-
-        <!-- Form de edición inline, oculto por defecto -->
-        <div class="admin-edit-form" id="edit-form-${u.id}" style="display:none;">
-          <input type="text" id="edit-nombre-${u.id}" value="${escaparHtml(u.nombre)}" maxlength="30" class="admin-input" placeholder="Nombre completo"/>
-          <input type="text" id="edit-clave-${u.id}" placeholder="Nueva clave (opcional, 8 dígitos)" maxlength="8" inputmode="numeric" class="admin-input"/>
-          <div class="admin-form-btns">
-            <button class="btn-principal btn-sm" onclick="guardarEdicionUsuario(${u.id})">Guardar cambios</button>
-            <button class="btn-secundario btn-sm" onclick="toggleEditarUsuario(${u.id})">Cancelar</button>
-          </div>
-          <p class="admin-form-error" id="edit-error-${u.id}" style="display:none;"></p>
+        <div style="display:flex;align-items:center;gap:0.5rem;" onclick="event.stopPropagation()">
+          <span class="admin-usuario-rol rol-${u.rol}">${u.rol === 'admin' ? '⚙️ Admin' : '🌱 Agricultor'}</span>
+          <button class="btn-editar" data-uid="${u.id}" onclick="toggleEditarUsuario(${u.id})">Editar</button>
+          ${!esElMismo ? `<button class="btn-eliminar" data-uid="${u.id}" data-nombre="${escaparHtml(u.nombre)}" onclick="eliminarUsuario(${u.id}, this.dataset.nombre)">Eliminar</button>` : ''}
         </div>
       </div>
-    `).join('');
-  } catch { lista.innerHTML = '<div class="cargando">Error al cargar usuarios.</div>'; }
+
+      <!-- Form de edición inline -->
+      <div class="admin-edit-form" id="edit-form-${u.id}" style="display:none;" onclick="event.stopPropagation()">
+        <input type="text" id="edit-nombre-${u.id}" value="${escaparHtml(u.nombre)}" maxlength="30" class="admin-input" placeholder="Nombre completo"/>
+        <input type="text" id="edit-clave-${u.id}" placeholder="Nueva clave (opcional, 8 dígitos)" maxlength="8" inputmode="numeric" class="admin-input"/>
+        <div class="admin-form-btns" style="margin-top: 0.5rem;">
+          <button class="btn-principal btn-sm" onclick="guardarEdicionUsuario(${u.id})">Guardar cambios</button>
+          <button class="btn-secundario btn-sm" onclick="toggleEditarUsuario(${u.id})">Cancelar</button>
+        </div>
+        <p class="admin-form-error" id="edit-error-${u.id}" style="display:none;"></p>
+      </div>
+    </div>
+  `}).join('');
+}
+
+async function abrirDetallesUsuario(event, uid) {
+  // Solo abrir si no se hizo clic en los botones de editar o form
+  if (event.target.closest('.btn-editar') || event.target.closest('.btn-eliminar') || event.target.closest('.admin-edit-form')) {
+    return;
+  }
+  
+  const modal = document.getElementById('modal-usuario');
+  const cuerpo = document.getElementById('modal-cuerpo');
+  modal.style.display = 'flex';
+  cuerpo.innerHTML = '<div class="cargando">Cargando detalles...</div>';
+  
+  try {
+    const res = await fetch(`/admin/usuarios/${uid}/historial`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    
+    const u = data.perfil;
+    const inicial = u.nombre.charAt(0).toUpperCase();
+    
+    const historialHtml = data.historial.length === 0 
+      ? '<div class="modal-historial-vacio">Este usuario aún no ha realizado ningún análisis.</div>'
+      : '<div class="modal-historial-lista">' + data.historial.map(item => {
+          const enf = item.enfermedades.length ? `⚠️ ${item.enfermedades[0].nombre}` : '✅ Sano';
+          const fecha = formatearFecha(item.fecha);
+          const imgSrc = item.imagen_path ? `/static/${item.imagen_path}` : '';
+          const imgHtml = imgSrc ? `<img src="${imgSrc}" alt="Cultivo">` : '<div style="width:80px;height:80px;background:#eee;border-radius:8px;display:flex;align-items:center;justify-content:center;">📷</div>';
+          return `
+            <div class="modal-historial-item">
+              ${imgHtml}
+              <div class="modal-historial-item-info">
+                <h4>${item.cultivo || 'Desconocido'}</h4>
+                <div style="font-size:0.8rem;color:var(--texto-suave);margin-bottom:0.2rem;">${fecha}</div>
+                <div style="font-size:0.85rem;font-weight:600;color:var(--verde-medio);">${enf} (Confianza: ${item.confianza||0}%)</div>
+              </div>
+            </div>
+          `;
+        }).join('') + '</div>';
+        
+    cuerpo.innerHTML = `
+      <div class="modal-header">
+        <div class="modal-avatar">${inicial}</div>
+        <div class="modal-header-info">
+          <h3>${escaparHtml(u.nombre)}</h3>
+          <p>${u.localidad ? u.localidad + ', ' : ''}${u.region || ''} — Rol: ${u.rol}</p>
+        </div>
+      </div>
+      <h4 style="margin-bottom:1rem;font-family:'Syne',sans-serif;">Historial de Peticiones</h4>
+      ${historialHtml}
+    `;
+  } catch(e) {
+    cuerpo.innerHTML = '<div class="cargando">No se pudo cargar la información del usuario.</div>';
+  }
 }
 
 function toggleEditarUsuario(uid) {
@@ -678,12 +1140,14 @@ async function guardarEdicionUsuario(uid) {
 async function guardarUsuario() {
   const nombre = document.getElementById('form-nombre').value.trim();
   const clave  = document.getElementById('form-clave').value.trim();
+  const region = document.getElementById('form-region').value;
+  const localidad = document.getElementById('form-localidad').value;
   const rol    = document.getElementById('form-rol').value;
   const errEl  = document.getElementById('admin-form-error');
 
   errEl.style.display = 'none';
 
-  if (!nombre || !clave) { mostrarErrorAdmin('Completa todos los campos.'); return; }
+  if (!nombre || !clave) { mostrarErrorAdmin('Completa nombre y clave.'); return; }
   if (nombre.length > 30) { mostrarErrorAdmin('El nombre no puede superar 30 caracteres.'); return; }
   if (clave.length !== 8) { mostrarErrorAdmin('La clave debe tener exactamente 8 dígitos.'); return; }
 
@@ -691,7 +1155,7 @@ async function guardarUsuario() {
     const res  = await fetch('/admin/usuarios', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, clave, rol })
+      body: JSON.stringify({ nombre, clave, rol, region, localidad })
     });
     const data = await res.json();
     if (!res.ok) { mostrarErrorAdmin(data.error); return; }
@@ -711,6 +1175,8 @@ async function eliminarUsuario(uid, nombre) {
     const data = await res.json();
     if (res.ok) {
       document.getElementById(`user-row-${uid}`)?.remove();
+      // Remove from cache
+      adminUsersCache = adminUsersCache.filter(u => u.id !== uid);
       cargarAdminStats();
       mostrarToast('success', 'Usuario eliminado', `${nombre} y su historial fueron eliminados.`);
     } else {
@@ -728,6 +1194,10 @@ function mostrarErrorAdmin(msg) {
 function limpiarFormAdmin() {
   document.getElementById('form-nombre').value = '';
   document.getElementById('form-clave').value  = '';
+  document.getElementById('form-region').value = '';
+  const loc = document.getElementById('form-localidad');
+  loc.innerHTML = '<option value="">Localidad...</option>';
+  loc.disabled = true;
   document.getElementById('form-rol').value    = 'agricultor';
   document.getElementById('admin-form-error').style.display = 'none';
 }

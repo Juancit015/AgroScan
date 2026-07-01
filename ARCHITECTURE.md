@@ -103,6 +103,9 @@ servidor de base de datos — ideal para una demo local o feria.
 | nombre  | TEXT    | Nombre a mostrar                |
 | dni     | TEXT    | Clave de acceso (8 dígitos), UNIQUE |
 | rol     | TEXT    | `"admin"` o `"agricultor"`      |
+| avatar_path | TEXT | Ruta de la foto de perfil        |
+| region  | TEXT    | Región de residencia            |
+| localidad| TEXT   | Localidad de residencia         |
 
 > El nombre de columna `dni` se mantiene por compatibilidad histórica, pero
 > en la interfaz **no se menciona como DNI** — se presenta como "clave de
@@ -209,13 +212,17 @@ Todas las rutas devuelven JSON. Las que requieren sesión devuelven
 |--------|---------------------------|--------|---------------------------------------------|
 | GET    | `/`                       | —      | Sirve login o app según sesión              |
 | POST   | `/login`                  | —      | `{dni}` → inicia sesión                     |
+| POST   | `/registro`               | —      | `{nombre, region, localidad, dni}` → crea usuario  |
 | GET    | `/logout`                 | —      | Cierra sesión                               |
 | POST   | `/analizar`               | Sesión | `{imagen: base64}` → diagnóstico IA         |
 | GET    | `/historial`              | Sesión | Lista de análisis del usuario               |
 | GET    | `/estadisticas`           | Sesión | Datos para el dashboard personal            |
+| POST   | `/perfil/avatar`          | Sesión | `{avatar: file}` → actualiza foto de perfil |
 | GET    | `/admin/usuarios`         | Admin  | Lista de todos los usuarios                 |
-| POST   | `/admin/usuarios`         | Admin  | `{nombre, clave, rol}` → crea usuario       |
+| POST   | `/admin/usuarios`         | Admin  | `{nombre, clave, rol, region, localidad}` → crea usuario |
+| PUT    | `/admin/usuarios/<id>`    | Admin  | `{nombre, clave}` → edita usuario           |
 | DELETE | `/admin/usuarios/<id>`    | Admin  | Elimina usuario (y sus análisis)            |
+| GET    | `/admin/usuarios/<id>/historial` | Admin  | Obtiene perfil y todos los análisis de un usuario específico |
 | GET    | `/admin/estadisticas`     | Admin  | Estadísticas globales de la plataforma      |
 
 ---
