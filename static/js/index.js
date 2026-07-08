@@ -424,13 +424,35 @@ async function analizarImagen(b64) {
 // ── Mostrar resultado ────────────────────────────────────────────
 function mostrarResultado(data) {
   window.ultimoDiagnosticoData = data;
+  window.chatHistorial = []; // reiniciar chat al hacer un nuevo diagnóstico
+  document.getElementById('chat-mensajes').innerHTML = '';
   ocultarTodos();
   document.getElementById('resultado-contenido').style.display = 'flex';
 
   document.getElementById('res-cultivo').textContent    = data.cultivo    || 'Cultivo desconocido';
   document.getElementById('res-maduracion').textContent = data.maduracion || '—';
-  document.getElementById('res-tratamiento').textContent = data.tratamiento || '—';
+  
+  // Tratamiento
+  const txtTratamiento = (data.tratamiento || '').trim();
+  document.getElementById('res-tratamiento').textContent = txtTratamiento && txtTratamiento !== '—' 
+    ? txtTratamiento 
+    : 'No requiere tratamiento fitosanitario especial.';
+    
   document.getElementById('res-advertencia').textContent = data.advertencia || '';
+
+  // Recomendación de consumo
+  const bloqueRecomendacion = document.getElementById('bloque-recomendacion');
+  const resRecomendacion = document.getElementById('res-recomendacion');
+  const recConsumo = (data.recomendacion_consumo || '').trim();
+  
+  if (recConsumo && recConsumo.toLowerCase() !== 'sin contraindicaciones relevantes') {
+    resRecomendacion.textContent = recConsumo;
+    bloqueRecomendacion.style.display = 'block';
+  } else {
+    // Si no hay una recomendación de alerta específica, mostrar mensaje de que es seguro
+    resRecomendacion.textContent = 'Sin contraindicaciones ni precauciones especiales detectadas.';
+    bloqueRecomendacion.style.display = 'block';
+  }
 
   renderConfianzaBar(data.confianza || 0, 'res-confianza-fill', 'res-confianza-pct');
 
@@ -519,112 +541,131 @@ function mostrarResultado(data) {
   }).join('');
 }
 
+// ── Chat de Seguimiento ──────────────────────────────────────────
+window.chatHistorial = [];
+
+function chatAgregarBurbuja(texto, tipo) {
+  const cont = document.getElementById('chat-mensajes');
+  const div = document.createElement('div');
+  div.className = `chat-burbuja chat-burbuja-${tipo}`;
+  div.textContent = texto;
+  cont.appendChild(div);
+  cont.scrollTop = cont.scrollHeight;
+  return div;
+}
+
+async function enviarChatMensaje() {
+  const input  = document.getElementById('chat-input');
+  const btn    = document.getElementById('chat-btn-enviar');
+  const pregunta = input.value.trim();
+
+  if (!pregunta) return;
+  if (!window.ultimoDiagnosticoData) return;
+
+  // Mostrar mensaje del usuario
+  chatAgregarBurbuja(pregunta, 'usuario');
+  window.chatHistorial.push({ rol: 'user', texto: pregunta });
+  input.value = '';
+  input.disabled = true;
+  btn.disabled   = true;
+
+  // Indicador "Escribiendo..."
+  const typing = chatAgregarBurbuja('🌿 Escribiendo...', 'typing');
+
+  try {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pregunta,
+        contexto: {
+          cultivo:       window.ultimoDiagnosticoData.cultivo,
+          enfermedades:  window.ultimoDiagnosticoData.enfermedades,
+          tratamiento:   window.ultimoDiagnosticoData.tratamiento,
+        },
+        mensajes: window.chatHistorial.slice(0, -1) // sin la última pregunta, ya va aparte
+      })
+    });
+    const data = await res.json();
+    typing.remove();
+
+    if (data.respuesta) {
+      chatAgregarBurbuja(data.respuesta, 'ia');
+      window.chatHistorial.push({ rol: 'assistant', texto: data.respuesta });
+    } else {
+      chatAgregarBurbuja('Hubo un problema al obtener la respuesta. Intenta de nuevo.', 'ia');
+    }
+  } catch {
+    typing.remove();
+    chatAgregarBurbuja('Error de conexión. Verifica tu internet e intenta de nuevo.', 'ia');
+  } finally {
+    input.disabled = false;
+    btn.disabled   = false;
+    input.focus();
+  }
+}
+
 // ── Exportar a PDF ───────────────────────────────────────────────
+
 function descargarPDF() {
   const data = window.ultimoDiagnosticoData;
   if (!data) return;
 
+  // Si no tenemos el ID del análisis guardado en BD, no podemos usar el endpoint backend.
+  if (!data.analisis_id) {
+    mostrarToast('error', 'No se puede exportar', 'Este análisis no fue guardado. Intenta de nuevo.');
+    return;
+  }
+
   const btn = document.getElementById('btn-descargar-pdf');
-  btn.textContent = 'Generando...';
+  btn.textContent = '⏳ Generando...';
   btn.disabled = true;
 
-  // Crear un contenedor invisible para la plantilla del PDF
-  const container = document.createElement('div');
-  container.style.padding = '40px';
-  container.style.fontFamily = "'Inter', sans-serif";
-  container.style.color = '#1A1A1A';
-  container.style.background = '#FFFFFF';
-  
-  // Encabezado
-  let html = `
-    <div style="border-bottom: 3px solid #52B788; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
-      <div>
-        <h1 style="font-family: 'Syne', sans-serif; font-size: 24px; color: #1B4332; margin: 0;">🌱 AgroScan</h1>
-        <p style="margin: 5px 0 0 0; color: #6B7280; font-size: 14px;">Reporte de Diagnóstico Agronómico</p>
-      </div>
-      <div style="text-align: right; color: #6B7280; font-size: 12px;">
-        Fecha: ${new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-      </div>
-    </div>
-  `;
+  // Usa el endpoint backend /reporte-pdf/<id> (WeasyPrint).
+  // El PDF se genera 100% en el servidor: no captura el DOM del navegador
+  // ni depende del tamaño de la ventana — el resultado es siempre idéntico.
+  const nombreArchivo = `AgroScan_Reporte_${(data.cultivo || 'Cultivo').replace(/\s+/g, '_')}.pdf`;
 
-  // Imagen y Datos Principales
-  const imgSrc = document.getElementById('preview').src;
-  html += `
-    <div style="display: flex; gap: 30px; margin-bottom: 30px;">
-      <div style="flex: 0 0 250px;">
-        <img src="${imgSrc}" style="width: 100%; border-radius: 8px; border: 1px solid #E4E0D8;" />
-      </div>
-      <div style="flex: 1;">
-        <h2 style="font-family: 'Syne', sans-serif; font-size: 22px; color: #1B4332; margin: 0 0 10px 0;">${data.cultivo || 'Cultivo Desconocido'}</h2>
-        <p style="margin: 0 0 5px 0; font-size: 14px;"><strong>Estado de maduración:</strong> ${data.maduracion || '—'}</p>
-        <p style="margin: 0 0 15px 0; font-size: 14px;"><strong>Confianza de la IA:</strong> ${data.confianza}%</p>
-  `;
+  fetch(`/reporte-pdf/${data.analisis_id}`)
+    .then(async res => {
+      if (!res.ok) {
+        // Intentar leer el mensaje de error del servidor
+        let msg = `Error del servidor (${res.status})`;
+        try {
+          const body = await res.json();
+          if (body.error) msg = body.error;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+      return res.blob();
+    })
+    .then(blob => {
+      // Crea un enlace temporal y lo "clica" para forzar la descarga
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombreArchivo;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-  if (data.enfermedades && data.enfermedades.length > 0) {
-    html += `<h3 style="font-size: 16px; color: #DC2626; margin: 0 0 10px 0;">⚠️ Enfermedades Detectadas</h3><ul style="margin: 0; padding-left: 20px; font-size: 14px;">`;
-    data.enfermedades.forEach(e => {
-      html += `<li style="margin-bottom: 5px;"><strong>${e.nombre}</strong> (${e.severidad})</li>`;
+      btn.textContent = '📄 Exportar a PDF';
+      btn.disabled = false;
+    })
+    .catch(err => {
+      console.error('Error al generar PDF:', err);
+      btn.textContent = '📄 Exportar a PDF';
+      btn.disabled = false;
+      mostrarToast('error', 'Error al exportar', err.message || 'Hubo un problema al generar el reporte PDF.');
     });
-    html += `</ul>`;
-  } else {
-    html += `<p style="color: #16A34A; font-weight: 600; font-size: 14px;">✅ Cultivo en buen estado. No se detectaron enfermedades.</p>`;
-  }
-
-  html += `</div></div>`;
-
-  // Explicación
-  if (data.explicacion && data.explicacion.length > 0) {
-    html += `
-      <div style="margin-bottom: 30px;">
-        <h3 style="font-size: 16px; color: #2D6A4F; margin: 0 0 10px 0;">🔬 Observaciones Visuales</h3>
-        <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #4B5563;">
-    `;
-    data.explicacion.forEach(ex => {
-      html += `<li style="margin-bottom: 5px;">${ex}</li>`;
-    });
-    html += `</ul></div>`;
-  }
-
-  // Tratamiento
-  if (data.tratamiento) {
-    html += `
-      <div style="background: #F7F3EC; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-        <h3 style="font-size: 16px; color: #1B4332; margin: 0 0 10px 0;">💊 Tratamiento Recomendado</h3>
-        <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #1A1A1A;">${data.tratamiento}</p>
-      </div>
-    `;
-  }
-
-  // Footer Disclaimer
-  html += `
-    <div style="border-top: 1px solid #E4E0D8; padding-top: 15px; margin-top: 40px; font-size: 11px; color: #9CA3AF; text-align: center;">
-      ${data.advertencia || 'Este diagnóstico es orientativo. Consulta a un ingeniero agrónomo para confirmación.'}
-      <br><br>Generado automáticamente por la plataforma AgroScan.
-    </div>
-  `;
-
-  container.innerHTML = html;
-
-  const opt = {
-    margin:       [10, 10, 10, 10], // Margen en mm
-    filename:     `AgroScan_Reporte_${(data.cultivo || 'Cultivo').replace(/\s+/g, '_')}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
-
-  html2pdf().set(opt).from(container).save().then(() => {
-    btn.textContent = '📄 Exportar a PDF';
-    btn.disabled = false;
-  }).catch(() => {
-    btn.textContent = '📄 Exportar a PDF';
-    btn.disabled = false;
-    mostrarToast('error', 'Error al exportar', 'Hubo un problema al generar el PDF.');
-  });
 }
 
+
+
 // ── Barra de confianza ───────────────────────────────────────────
+
+
 function renderConfianzaBar(valor, fillId, pctId) {
   const fill = document.getElementById(fillId);
   const pct  = pctId ? document.getElementById(pctId) : null;

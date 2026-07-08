@@ -10,14 +10,33 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 
 ## [No publicado]
 
+### Corregido
+- **Menú móvil vs. notificaciones**: Se ordenó la escala de `z-index` del frontend
+  mediante variables CSS (`--z-navbar`, `--z-toast`, `--z-mobile-nav`,
+  `--z-modal`). El drawer hamburguesa móvil ahora queda por encima de los
+  toasts cuando está abierto, sin alterar la posición ni animaciones de las
+  notificaciones en escritorio.
+- **Emojis del reporte PDF**: Los íconos del reporte generado con WeasyPrint
+  ya no dependen de la fuente emoji instalada en el sistema. Se agregaron SVG
+  locales en `static/assets/emoji/` y el template backend los incrusta como
+  imágenes, evitando cuadros vacíos en secciones como "Observaciones Visuales"
+  y "Tratamiento Recomendado".
+
 ### Por hacer (roadmap)
 - Comparación temporal entre análisis del mismo cultivo (antes / después)
-- Alertas automáticas por aumento de casos de una enfermedad
-- Exportar diagnóstico a PDF
-- Filtros en el historial (por cultivo, enfermedad, fecha)
 - Limpieza periódica de `static/uploads/`
 - Rate limiting sobre `/analizar`
 - Expiración explícita de sesión
+
+## [0.8.1] — 2026-07-07
+
+### Agregado
+- **Recomendaciones de Consumo**: La IA ahora incluye advertencias dietéticas y sugerencias alimentarias basadas en el cultivo y su estado de maduración (por ejemplo, advertencias de altos niveles de azúcar para personas con diabetes). Esta información se muestra en la interfaz web y se exporta en el reporte PDF, incrementando el valor del diagnóstico.
+- **Estandarización de Nombres Peruanos**: La IA ahora está forzada a devolver el nombre local del cultivo en Perú (ej. "Palta" en vez de "Aguacate") acompañado de su nombre científico, lo que hace el reporte mucho más profesional y útil para el sector agrícola local.
+
+### Arreglado
+- **Exportación a PDF**: Se solucionó un problema crítico de inconsistencia en el formato del reporte PDF. La generación dependía del tamaño de la ventana (viewport) del navegador (`html2pdf.js`). Ahora el PDF se renderiza en el backend de forma nativa (`WeasyPrint`), garantizando un formato profesional y estable tamaño A4, independiente del dispositivo o resolución del usuario. Además, se restauraron el logo oficial y la imagen original del cultivo en el reporte.
+
 
 ## [0.8.0] — 2026-06-30
 
@@ -32,6 +51,7 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
   - **Identificador de Sesión Activa**: Se resalta al usuario logueado con la etiqueta `(Tú)` y se oculta el botón "Eliminar" en su propia fila para prevenir accidentes.
 
 ### Escaneo y Diagnóstico
+- **Chat de Seguimiento Post-Diagnóstico**: Se incorporó un widget de chat conversacional directamente en el panel de resultados. El agricultor puede hacer preguntas libres sobre el cultivo recién analizado (clima, disponibilidad del tratamiento, plazo de cosecha, etc.) y la IA responde con el contexto exacto del diagnóstico. El historial del chat se reinicia con cada nuevo análisis. Nuevo endpoint `/chat`.
 - **Alertas Epidemiológicas Regionales**: Sistema de "inteligencia comunitaria". Al finalizar un escaneo, AgroScan verifica en milisegundos si en la misma Localidad del usuario se han reportado múltiples casos de la misma enfermedad en los últimos 7 días. De ser así, despliega una alerta visual preventiva.
 - **Exportación a PDF**: Se incorporó la opción de "Exportar a PDF" el resultado de los análisis. Genera un reporte agronómico formal y maquetado (tamaño A4) ideal para impresión usando `html2pdf.js`.
 - **Fuentes de Búsqueda Confiables**: Se mejoró el prompt de la IA para evitar "alucinaciones" de enlaces caídos. Ahora el sistema extrae el título e institución y construye un acceso rápido y directo mediante *Google Search*.

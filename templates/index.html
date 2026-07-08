@@ -8,7 +8,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -177,6 +176,10 @@
               <h4>💊 Tratamiento recomendado</h4>
               <p id="res-tratamiento" class="texto-resultado">—</p>
             </div>
+            <div class="resultado-bloque" id="bloque-recomendacion" style="display:none;">
+              <h4 style="color: #9333EA;">🍽️ Recomendación de Consumo</h4>
+              <p id="res-recomendacion" class="texto-resultado" style="background: #FAF5FF; border-left: 4px solid #A855F7; padding: 12px; border-radius: 6px;">—</p>
+            </div>
             <div class="advertencia-box"><span>⚠️</span><p id="res-advertencia">Este diagnóstico es orientativo.</p></div>
             <div class="resultado-bloque">
               <h4>📚 Fuentes consultadas</h4>
@@ -186,7 +189,33 @@
             <div class="resultado-acciones" style="margin-top: 1.5rem; text-align: center;">
               <button class="btn-secundario" id="btn-descargar-pdf" onclick="descargarPDF()">📄 Exportar a PDF</button>
             </div>
+
+            <!-- ── Chat de Seguimiento ── -->
+            <div class="chat-seguimiento" id="chat-seguimiento">
+              <div class="chat-header">
+                <span class="chat-header-icon">💬</span>
+                <div>
+                  <h4 class="chat-titulo">¿Tienes dudas sobre este diagnóstico?</h4>
+                  <p class="chat-subtitulo">Pregúntale al asistente agronómico de AgroScan</p>
+                </div>
+              </div>
+              <div class="chat-mensajes" id="chat-mensajes"></div>
+              <div class="chat-input-wrap">
+                <input 
+                  type="text" 
+                  id="chat-input" 
+                  class="chat-input" 
+                  placeholder="Ej: ¿Puedo aplicar el fungicida si va a llover hoy?" 
+                  maxlength="300"
+                  onkeydown="if(event.key==='Enter') enviarChatMensaje()"
+                />
+                <button class="chat-btn-enviar" id="chat-btn-enviar" onclick="enviarChatMensaje()">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </div>
           </div>
+
           <div class="resultado-error" id="resultado-error" style="display:none;">
             <span>❌</span>
             <p id="error-texto">Ocurrió un error al analizar.</p>

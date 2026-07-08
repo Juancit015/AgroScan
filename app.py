@@ -15,7 +15,7 @@ directamente. Ver ARCHITECTURE.md para el flujo completo request → IA → DB.
 Última actualización: 2026-06-18 (ver CHANGELOG.md → [0.4.0])
 """
 
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template, render_template_string, session, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 from functools import wraps
@@ -23,9 +23,10 @@ from database import (inicializar_db, buscar_usuario_por_dni, guardar_analisis,
                       obtener_historial, obtener_estadisticas,
                       obtener_todos_usuarios, agregar_usuario, eliminar_usuario,
                       editar_usuario, nombre_en_uso, actualizar_avatar,
-                      obtener_estadisticas_globales)
+                      obtener_estadisticas_globales, obtener_analisis_por_id)
+from weasyprint import HTML
 from groq import Groq
-import base64, os, json, re, uuid, time
+import base64, os, json, re, uuid, time, io
 from datetime import datetime
 
 load_dotenv()
@@ -42,6 +43,24 @@ inicializar_db()
 # se crea sola si todavía no existe.
 os.makedirs(os.path.join("static", "uploads", "avatars"), exist_ok=True)
 
+PDF_EMOJI_FILES = {
+    "sprout": "sprout.svg",
+    "warning": "warning.svg",
+    "check": "check.svg",
+    "microscope": "microscope.svg",
+    "pill": "pill.svg",
+    "fork_knife": "fork_knife.svg",
+    "books": "books.svg",
+}
+
+def obtener_pdf_emoji_paths():
+    """Rutas file:// para que WeasyPrint incruste emojis SVG locales."""
+    base = os.path.join(app.root_path, "static", "assets", "emoji")
+    return {
+        nombre: "file://" + os.path.join(base, archivo)
+        for nombre, archivo in PDF_EMOJI_FILES.items()
+    }
+
 # Tiempo (en segundos) que tardó la última llamada a la IA. Vive en memoria
 # del proceso — se reinicia si el servidor se reinicia, lo cual es
 # aceptable para un widget informativo de "estado del sistema".
@@ -51,6 +70,8 @@ PROMPT = """
 Eres un experto en agronomía y fitosanidad especializado en cultivos peruanos.
 Analiza la imagen y responde ÚNICAMENTE con un JSON válido, sin texto extra, sin bloques de código.
 
+IMPORTANTE: El nombre del cultivo DEBE ser el nombre común utilizado en Perú (por ejemplo, "Palta" en vez de "Aguacate", "Granadilla" en vez de "Granado", "Choclo" en vez de "Elote") seguido de su nombre científico entre paréntesis. Ejemplo: "Palta (Persea americana)".
+
 PASO 1 — Validación:
 Determina si la imagen contiene un cultivo, fruta, hortaliza, planta, hoja o producto agrícola.
 Si NO es agrícola responde SOLO: {"valido": false, "motivo": "descripción breve de lo que se ve"}
@@ -58,7 +79,7 @@ Si NO es agrícola responde SOLO: {"valido": false, "motivo": "descripción brev
 PASO 2 — Diagnóstico (solo si es agrícola):
 {
   "valido": true,
-  "cultivo": "nombre del cultivo detectado",
+  "cultivo": "Nombre común en Perú (Nombre científico)",
   "maduracion": "Verde / En desarrollo / Listo para cosecha / Sobre maduro",
   "confianza": 85,
   "enfermedades": [
@@ -67,6 +88,7 @@ PASO 2 — Diagnóstico (solo si es agrícola):
   "explicacion": ["Observación 1","Observación 2","Observación 3"],
   "zona_afectada": {"x":20,"y":30,"width":40,"height":35,"descripcion":"Zona afectada"},
   "tratamiento": "recomendación concreta",
+  "recomendacion_consumo": "Breve advertencia o recomendación alimentaria (ej: Alto en azúcares, consumo moderado para diabéticos. Si no aplica, dejar vacío o 'Sin contraindicaciones relevantes')",
   "advertencia": "Este diagnóstico es orientativo. Consulta a un ingeniero agrónomo para confirmación.",
   "fuentes": [{"titulo":"título del documento o guía","institucion":"FAO / SENASA / MINAGRI"}]
 }
@@ -261,6 +283,66 @@ def historial():
         return jsonify({"error": "No has iniciado sesión"}), 401
     return jsonify(obtener_historial(session["usuario_id"]))
 
+@app.route("/chat", methods=["POST"])
+def chat_diagnostico():
+    """
+    Endpoint para el chat de seguimiento post-diagnóstico.
+    Recibe el contexto del diagnóstico y el historial de mensajes del chat
+    para que la IA pueda responder preguntas específicas sobre ese cultivo.
+    """
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesión"}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Datos inválidos"}), 400
+
+    contexto   = data.get("contexto", {})   # diagnóstico actual
+    mensajes   = data.get("mensajes", [])   # historial de mensajes del chat
+    pregunta   = data.get("pregunta", "").strip()
+
+    if not pregunta:
+        return jsonify({"error": "La pregunta no puede estar vacía"}), 400
+
+    # Construir el sistema con contexto del diagnóstico
+    cultivo      = contexto.get("cultivo", "cultivo desconocido")
+    enfermedades = contexto.get("enfermedades", [])
+    tratamiento  = contexto.get("tratamiento", "")
+    localidad    = session.get("localidad", "Perú")
+
+    enf_texto = ", ".join([e.get("nombre", "") for e in enfermedades]) if enfermedades else "ninguna"
+
+    system_prompt = f"""Eres el asistente agronómico de AgroScan, especializado en cultivos peruanos.
+Acabas de analizar un cultivo y el agricultor tiene preguntas de seguimiento.
+
+CONTEXTO DEL DIAGNÓSTICO ACTUAL:
+- Cultivo detectado: {cultivo}
+- Enfermedades: {enf_texto}
+- Tratamiento recomendado: {tratamiento}
+- Localidad del agricultor: {localidad}
+
+Responde de forma clara, práctica y breve (máximo 3-4 oraciones). Usa lenguaje sencillo, sin tecnicismos innecesarios. Si la pregunta es sobre el cultivo analizado, responde con precisión. Si es completamente ajena a la agronomía, indícalo amablemente y redirige la conversación al cultivo."""
+
+    # Armar historial de mensajes para la IA
+    messages_groq = [{"role": "system", "content": system_prompt}]
+    for msg in mensajes[-10:]:   # máximo 10 mensajes de contexto
+        if msg.get("rol") in ("user", "assistant"):
+            messages_groq.append({"role": msg["rol"], "content": msg["texto"]})
+    messages_groq.append({"role": "user", "content": pregunta})
+
+    try:
+        response = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=messages_groq,
+            max_tokens=512
+        )
+        respuesta = response.choices[0].message.content.strip()
+        return jsonify({"respuesta": respuesta})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
 @app.route("/estadisticas")
 def estadisticas():
     if "usuario_id" not in session:
@@ -284,7 +366,337 @@ def estado_sistema():
         "total_analisis":   stats["total_analisis"]
     })
 
+
+# ── Exportación a PDF (WeasyPrint) ────────────────────────────────
+# Generado 100% en el backend — no depende del tamaño de la ventana
+# del navegador. El resultado es siempre idéntico sin importar el
+# cliente, el viewport o el estado de carga de fuentes.
+
+REPORTE_PDF_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 22mm 16mm;
+    @bottom-center {
+      content: "Generado automáticamente por AgroScan  |  {{ fecha }} {{ hora }}";
+      font-size: 8px;
+      color: #9CA3AF;
+      font-family: Arial, sans-serif;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    color: #1A1A1A;
+    font-size: 11.5px;
+    line-height: 1.55;
+    background: #fff;
+  }
+  .emoji-img {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    margin-right: 5px;
+    vertical-align: -2px;
+  }
+  .emoji-logo {
+    width: 20px;
+    height: 20px;
+    vertical-align: -3px;
+  }
+
+  /* ── CABECERA ── */
+  .cabecera {
+    width: 100%;
+    border-bottom: 3px solid #52B788;
+    padding-bottom: 10px;
+    margin-bottom: 18px;
+  }
+  .cab-tabla { width: 100%; border-collapse: collapse; }
+  .logo-wrap { vertical-align: middle; }
+  .logo-img  { height: 38px; width: auto; vertical-align: middle; margin-right: 8px; }
+  .logo-texto {
+    font-size: 22px; font-weight: 800; color: #1B4332;
+    vertical-align: middle; letter-spacing: -0.5px;
+  }
+  .logo-sub { font-size: 10px; color: #6B7280; margin-top: 2px; }
+  .cab-fecha { text-align: right; vertical-align: middle; font-size: 10px; color: #9CA3AF; }
+
+  /* ── SECCIÓN PRINCIPAL: imagen + datos ── */
+  .principal-tabla { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  .principal-img {
+    width: 185px; height: 155px; object-fit: cover;
+    border-radius: 6px; border: 1px solid #E4E0D8;
+    display: block;
+  }
+  .sin-img {
+    width: 185px; height: 155px; background: #F5F4F1;
+    border-radius: 6px; border: 1px solid #E4E0D8;
+    text-align: center; color: #9CA3AF; font-size: 10px;
+    vertical-align: middle; padding-top: 60px;
+  }
+  .datos-col { vertical-align: top; padding-left: 20px; }
+  .cultivo-nombre { font-size: 20px; font-weight: 700; color: #1B4332; margin-bottom: 10px; }
+  .dato-tabla { border-collapse: collapse; margin-bottom: 12px; }
+  .dato-label { color: #6B7280; font-size: 10.5px; padding-right: 14px; white-space: nowrap; padding-bottom: 3px; }
+  .dato-valor { font-weight: 600; padding-bottom: 3px; }
+
+  /* ── BARRA DE CONFIANZA ── */
+  .conf-wrap { margin-top: 4px; }
+  .conf-label { font-size: 10px; color: #6B7280; margin-bottom: 3px; }
+  .conf-track { width: 100%; height: 8px; background: #E5E7EB; border-radius: 99px; overflow: hidden; }
+  .conf-fill  { height: 8px; border-radius: 99px; }
+  .conf-fill.verde    { background: #22C55E; }
+  .conf-fill.amarillo { background: #EAB308; }
+  .conf-fill.rojo     { background: #EF4444; }
+  .conf-pct { font-size: 10px; font-weight: 700; margin-top: 2px; }
+
+  /* ── SEPARADOR ── */
+  hr.separador { border: none; border-top: 1px solid #E4E0D8; margin: 14px 0; }
+
+  /* ── BLOQUE GENÉRICO ── */
+  .bloque { margin-bottom: 16px; page-break-inside: avoid; }
+  .bloque-titulo {
+    font-size: 12px; font-weight: 700; margin-bottom: 7px;
+    padding-bottom: 3px; border-bottom: 1.5px solid currentColor;
+    display: inline-block;
+  }
+  .bloque-titulo.enfermedad { color: #DC2626; }
+  .bloque-titulo.sano       { color: #16A34A; }
+  .bloque-titulo.obs        { color: #2D6A4F; }
+  .bloque-titulo.tratamiento{ color: #1B4332; }
+  .bloque-titulo.fuentes    { color: #1D4ED8; }
+
+  /* ── ENFERMEDADES ── */
+  .enf-item { margin-bottom: 8px; padding: 7px 10px; background: #FEF2F2; border-radius: 5px; border-left: 3px solid #DC2626; }
+  .enf-nombre { font-weight: 700; color: #991B1B; font-size: 11.5px; }
+  .enf-severidad { font-size: 10px; color: #B91C1C; margin-left: 6px; }
+  .enf-desc { font-size: 10.5px; color: #4B5563; margin-top: 2px; }
+
+  /* ── OBSERVACIONES ── */
+  ul.obs-lista { padding-left: 16px; color: #374151; }
+  ul.obs-lista li { margin-bottom: 4px; font-size: 11px; }
+
+  /* ── TRATAMIENTO ── */
+  .caja-tratamiento {
+    background: #F0FDF4; border-left: 4px solid #52B788;
+    border-radius: 6px; padding: 11px 15px; color: #1A1A1A;
+    font-size: 11px;
+  }
+
+  /* ── FUENTES ── */
+  .fuente-item { margin-bottom: 5px; font-size: 10.5px; }
+  .fuente-titulo { font-weight: 600; color: #1E3A5F; }
+  .fuente-inst { color: #6B7280; font-size: 10px; }
+
+  /* ── ADVERTENCIA ── */
+  .advertencia {
+    margin-top: 20px; padding: 8px 12px;
+    background: #FFFBEB; border-radius: 5px;
+    border: 1px solid #FDE68A;
+    font-size: 9.5px; color: #78350F; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+  <!-- CABECERA -->
+  <div class="cabecera">
+    <table class="cab-tabla">
+      <tr>
+        <td class="logo-wrap">
+          {% if logo_path %}
+            <img src="{{ logo_path }}" class="logo-img" alt="AgroScan">
+          {% endif %}
+          <span class="logo-texto"><img src="{{ emoji.sprout }}" class="emoji-img emoji-logo" alt="">AgroScan</span>
+          <div class="logo-sub">Reporte de Diagnóstico Agronómico</div>
+        </td>
+        <td class="cab-fecha">{{ fecha }}<br>{{ hora }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- IMAGEN + DATOS PRINCIPALES -->
+  <table class="principal-tabla">
+    <tr>
+      <td style="width:185px; vertical-align:top;">
+        {% if imagen_path %}
+          <img class="principal-img" src="{{ imagen_path }}" alt="Cultivo analizado">
+        {% else %}
+          <div class="sin-img">Sin imagen</div>
+        {% endif %}
+      </td>
+      <td class="datos-col">
+        <div class="cultivo-nombre">{{ cultivo }}</div>
+        <table class="dato-tabla">
+          <tr>
+            <td class="dato-label">Estado de maduración</td>
+            <td class="dato-valor">{{ maduracion }}</td>
+          </tr>
+          <tr>
+            <td class="dato-label">Confianza de la IA</td>
+            <td class="dato-valor">{{ confianza }}%</td>
+          </tr>
+        </table>
+        <!-- Barra de confianza -->
+        <div class="conf-wrap">
+          <div class="conf-label">Nivel de confianza del diagnóstico</div>
+          <div class="conf-track">
+            <div class="conf-fill {% if confianza >= 80 %}verde{% elif confianza >= 60 %}amarillo{% else %}rojo{% endif %}"
+                 style="width: {{ confianza }}%;"></div>
+          </div>
+          <div class="conf-pct" style="color: {% if confianza >= 80 %}#16A34A{% elif confianza >= 60 %}#B45309{% else %}#DC2626{% endif %};">
+            {{ confianza }}%
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <hr class="separador">
+
+  <!-- ENFERMEDADES -->
+  <div class="bloque">
+    {% if enfermedades %}
+      <div class="bloque-titulo enfermedad"><img src="{{ emoji.warning }}" class="emoji-img" alt="">Enfermedades detectadas</div>
+      {% for e in enfermedades %}
+        <div class="enf-item">
+          <span class="enf-nombre">{{ e.nombre }}</span>
+          <span class="enf-severidad">[ {{ e.severidad }} ]</span>
+          {% if e.descripcion %}
+            <div class="enf-desc">{{ e.descripcion }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="bloque-titulo sano"><img src="{{ emoji.check }}" class="emoji-img" alt="">Cultivo en buen estado — sin enfermedades detectadas</div>
+    {% endif %}
+  </div>
+
+  <!-- OBSERVACIONES VISUALES -->
+  {% if explicacion %}
+  <div class="bloque">
+    <div class="bloque-titulo obs"><img src="{{ emoji.microscope }}" class="emoji-img" alt="">Observaciones Visuales</div>
+    <ul class="obs-lista">
+      {% for obs in explicacion %}<li>{{ obs }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- TRATAMIENTO -->
+  <div class="bloque">
+    <div class="bloque-titulo tratamiento"><img src="{{ emoji.pill }}" class="emoji-img" alt="">Tratamiento Recomendado</div>
+    <div class="caja-tratamiento">
+      {% if tratamiento and tratamiento != '—' %}
+        {{ tratamiento }}
+      {% else %}
+        No requiere tratamiento fitosanitario especial.
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- RECOMENDACIÓN DE CONSUMO -->
+  <div class="bloque">
+    <div class="bloque-titulo obs" style="color: #9333EA;"><img src="{{ emoji.fork_knife }}" class="emoji-img" alt="">Recomendación de Consumo</div>
+    <div class="caja-tratamiento" style="background: #FAF5FF; border-left-color: #A855F7;">
+      {% if recomendacion_consumo and recomendacion_consumo.lower() != 'sin contraindicaciones relevantes' %}
+        {{ recomendacion_consumo }}
+      {% else %}
+        Sin contraindicaciones ni precauciones especiales detectadas.
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- FUENTES -->
+  {% if fuentes %}
+  <div class="bloque">
+    <div class="bloque-titulo fuentes"><img src="{{ emoji.books }}" class="emoji-img" alt="">Fuentes consultadas</div>
+    {% for f in fuentes %}
+      <div class="fuente-item">
+        <span class="fuente-titulo">{{ f.titulo }}</span>
+        {% if f.institucion %}<span class="fuente-inst"> — {{ f.institucion }}</span>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ADVERTENCIA -->
+  <div class="advertencia">
+    <img src="{{ emoji.warning }}" class="emoji-img" alt="">{{ advertencia or 'Este diagnóstico es orientativo y no reemplaza la evaluación de un ingeniero agrónomo certificado.' }}
+  </div>
+
+</body>
+</html>
+"""
+
+@app.route("/reporte-pdf/<int:analisis_id>")
+def reporte_pdf(analisis_id):
+    """
+    Genera y descarga el reporte de un analisis como PDF usando WeasyPrint.
+    Resultado siempre identico, sin importar el viewport del navegador.
+    """
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesion"}), 401
+
+    analisis = obtener_analisis_por_id(analisis_id, session["usuario_id"])
+    if not analisis:
+        return jsonify({"error": "Analisis no encontrado"}), 404
+
+    # Imagen del cultivo — ruta absoluta file:// para WeasyPrint
+    imagen_path = None
+    if analisis.get("imagen_path"):
+        ruta_absoluta = os.path.join(app.root_path, "static", analisis["imagen_path"])
+        if os.path.exists(ruta_absoluta):
+            imagen_path = "file://" + ruta_absoluta
+
+    # Logo — ruta absoluta file:// para WeasyPrint
+    logo_path = None
+    ruta_logo = os.path.join(app.root_path, "static", "assets", "logo.png")
+    if os.path.exists(ruta_logo):
+        logo_path = "file://" + ruta_logo
+
+    ahora = datetime.now()
+    html_final = render_template_string(
+        REPORTE_PDF_TEMPLATE,
+        cultivo=analisis.get("cultivo") or "Cultivo desconocido",
+        maduracion=analisis.get("maduracion") or "—",
+        confianza=analisis.get("confianza") or 0,
+        enfermedades=analisis.get("enfermedades") or [],
+        explicacion=analisis.get("explicacion") or [],
+        tratamiento=analisis.get("tratamiento"),
+        recomendacion_consumo=analisis.get("recomendacion_consumo"),
+        fuentes=analisis.get("fuentes") or [],
+        advertencia=analisis.get("advertencia"),
+        imagen_path=imagen_path,
+        logo_path=logo_path,
+        emoji=obtener_pdf_emoji_paths(),
+        fecha=ahora.strftime("%d/%m/%Y"),
+        hora=ahora.strftime("%I:%M %p"),
+    )
+
+    try:
+        pdf_bytes = HTML(string=html_final, base_url=app.root_path).write_pdf()
+    except Exception as e:
+        return jsonify({"error": f"Error al generar PDF: {str(e)}"}), 500
+
+    nombre_cultivo = (analisis.get("cultivo") or "Cultivo").replace(" ", "_")
+    filename = f"AgroScan_Reporte_{nombre_cultivo}.pdf"
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+
 # ── Rutas Admin ───────────────────────────────────────────────────
+
 # El admin puede: ver la lista de usuarios con sus estadísticas, crear
 # nuevos usuarios, editar nombre/clave de uno existente (bloqueando nombres
 # duplicados) y eliminar usuarios. No expone qué representa la "clave"

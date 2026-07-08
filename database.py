@@ -75,11 +75,12 @@ def inicializar_db():
             fuentes       TEXT,
             imagen_path   TEXT,
             fecha         DATETIME DEFAULT CURRENT_TIMESTAMP,
+            recomendacion_consumo TEXT,
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         )
     """)
 
-    for col in [("explicacion", "TEXT"), ("zona_afectada", "TEXT")]:
+    for col in [("explicacion", "TEXT"), ("zona_afectada", "TEXT"), ("recomendacion_consumo", "TEXT")]:
         try:
             cur.execute(f"ALTER TABLE analisis ADD COLUMN {col[0]} {col[1]}")
         except:
@@ -125,8 +126,8 @@ def guardar_analisis(usuario_id, resultado, imagen_path=None):
     cur.execute("""
         INSERT INTO analisis
             (usuario_id, cultivo, maduracion, confianza, enfermedades,
-             tratamiento, explicacion, zona_afectada, fuentes, imagen_path)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             tratamiento, explicacion, zona_afectada, fuentes, imagen_path, recomendacion_consumo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         usuario_id,
         resultado.get("cultivo"),
@@ -137,7 +138,8 @@ def guardar_analisis(usuario_id, resultado, imagen_path=None):
         json.dumps(resultado.get("explicacion", []),   ensure_ascii=False),
         json.dumps(resultado.get("zona_afectada", {}), ensure_ascii=False),
         json.dumps(resultado.get("fuentes", []),       ensure_ascii=False),
-        imagen_path
+        imagen_path,
+        resultado.get("recomendacion_consumo")
     ))
     conn.commit()
     aid = cur.lastrowid
@@ -160,6 +162,27 @@ def obtener_historial(usuario_id):
         item["zona_afectada"] = json.loads(item.get("zona_afectada") or "{}")
         result.append(item)
     return result
+
+
+def obtener_analisis_por_id(analisis_id, usuario_id):
+    """
+    Devuelve un único análisis, verificando que pertenezca a usuario_id
+    (evita que un usuario pida por ID el reporte de otro). Usado por el
+    endpoint /reporte-pdf. Devuelve None si no existe o no le pertenece.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM analisis WHERE id = ? AND usuario_id = ?", (analisis_id, usuario_id))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+    item = dict(row)
+    item["enfermedades"]  = json.loads(item.get("enfermedades")  or "[]")
+    item["fuentes"]       = json.loads(item.get("fuentes")       or "[]")
+    item["explicacion"]   = json.loads(item.get("explicacion")   or "[]")
+    item["zona_afectada"] = json.loads(item.get("zona_afectada") or "{}")
+    return item
 
 
 def verificar_brotes_regionales(enfermedades_detectadas, localidad, dias=7):

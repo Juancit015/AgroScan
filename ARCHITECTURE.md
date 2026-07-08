@@ -84,6 +84,16 @@ La ruta relativa (`uploads/archivo.jpg`) se guarda en la columna
 `imagen_path` de la tabla `analisis`, y es lo que el frontend usa para
 mostrar la miniatura en el historial.
 
+### 2.5 Reportes PDF
+
+El endpoint `/reporte-pdf/<analisis_id>` genera el informe en backend con
+`WeasyPrint` a partir de `REPORTE_PDF_TEMPLATE`. Esto evita depender del
+viewport del navegador y produce un A4 estable para impresión.
+
+Los íconos del reporte no se renderizan como caracteres emoji directos: se
+incrustan como SVG locales desde `static/assets/emoji/`. Esta decisión evita
+cuadros vacíos cuando el servidor no tiene instalada una fuente emoji completa.
+
 ---
 
 ## 3. Base de datos (`database.py`)
@@ -200,6 +210,13 @@ registrados" / "Activa categorías desde la leyenda") cuando un gráfico no
 tiene datos visibles — evita que el usuario vea un canvas en blanco sin
 explicación.
 
+### 4.5 Capas visuales
+
+`index.css` centraliza el orden de apilamiento con variables CSS:
+`--z-navbar`, `--z-toast`, `--z-mobile-nav` y `--z-modal`. El drawer móvil
+vive por encima de los toasts cuando está abierto, mientras que los toasts
+siguen apareciendo normalmente sobre el contenido en escritorio.
+
 ---
 
 ## 5. Contrato de la API
@@ -218,6 +235,8 @@ Todas las rutas devuelven JSON. Las que requieren sesión devuelven
 | GET    | `/historial`              | Sesión | Lista de análisis del usuario               |
 | GET    | `/estadisticas`           | Sesión | Datos para el dashboard personal            |
 | POST   | `/perfil/avatar`          | Sesión | `{avatar: file}` → actualiza foto de perfil |
+| POST   | `/chat`                   | Sesión | Pregunta de seguimiento con contexto del diagnóstico |
+| GET    | `/reporte-pdf/<id>`       | Sesión | Genera y descarga el reporte PDF de un análisis |
 | GET    | `/admin/usuarios`         | Admin  | Lista de todos los usuarios                 |
 | POST   | `/admin/usuarios`         | Admin  | `{nombre, clave, rol, region, localidad}` → crea usuario |
 | PUT    | `/admin/usuarios/<id>`    | Admin  | `{nombre, clave}` → edita usuario           |

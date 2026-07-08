@@ -22,8 +22,10 @@ líder en exportación de espárrago).
 - 📊 **Barra de confianza** con código de color (verde / amarillo / rojo)
 - 🔴 **Zona afectada** marcada visualmente sobre la imagen
 - 🔬 **Explicación del diagnóstico** — observaciones que justifican el resultado
+- 🍽️ **Recomendaciones de Consumo** — advertencias dietéticas y sugerencias de consumo según la maduración o el tipo de fruto (ej: diabetes)
 - 🚨 **Alertas Regionales Epidemiológicas** — cruzamiento de datos de la zona para alertar sobre brotes recientes
-- 📄 **Exportación a PDF** — descarga de informes agronómicos listos para imprimir (`html2pdf.js`)
+- 💬 **Chat de Seguimiento** — chat conversacional post-diagnóstico para resolver dudas específicas sobre el cultivo analizado (powered by Groq)
+- 📄 **Exportación a PDF** — descarga de informes agronómicos de tamaño estándar (A4) generados 100% en backend (`WeasyPrint`)
 - 📚 **Fuentes citadas** con enlaces directos verificados mediante Google Search
 - 📋 **Historial** de análisis con imagen guardada, barra de confianza y filtros dinámicos por tipo de cultivo
 - 📈 **Dashboard** con gráficas (estado de cultivos, enfermedades frecuentes,
@@ -65,6 +67,9 @@ AgroScan/
     ├── js/
     │   ├── login.js
     │   └── index.js
+    ├── assets/
+    │   ├── logo.png        # Logo de la app
+    │   └── emoji/          # SVG locales usados por el reporte PDF
     ├── uploads/          # Imágenes analizadas, guardadas por el backend
     └── favicon.ico
 ```
@@ -83,7 +88,7 @@ comunican estas piezas, el modelo de datos y el contrato de la API.
 ### 2. Instalar dependencias
 
 ```bash
-pip install flask flask-cors python-dotenv groq --break-system-packages
+pip install flask flask-cors python-dotenv groq weasyprint --break-system-packages
 ```
 
 ### 3. Configurar variables de entorno
@@ -122,6 +127,9 @@ El sistema usa una **clave numérica de 8 dígitos** por usuario. Los usuarios n
 - La paleta de colores y tipografías (Syne + Inter) se mantienen consistentes
   en todas las pantallas — ver variables CSS en la cabecera de cada archivo
   `.css`.
+- El PDF se genera en backend con `WeasyPrint`; los íconos del reporte se
+  incrustan como SVG locales (`static/assets/emoji/`) para evitar depender de
+  fuentes emoji del sistema.
 - El servidor de desarrollo de Flask (`debug=True`) **no está pensado para
   producción**. Para una feria o demo local es suficiente.
 - Las imágenes analizadas se guardan en `static/uploads/`; este directorio
