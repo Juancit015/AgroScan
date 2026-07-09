@@ -15,6 +15,7 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 - **Tipografía Global**: Se aplicó la fuente **Montserrat** en toda la plataforma web (login, dashboard, paneles), exceptuando los reportes PDF generados en backend (los cuales mantienen Arial por seguridad de compatibilidad al imprimir).
 
 ### Corregido
+- **Parpadeo en la navegación**: Se solucionó un efecto visual de "parpadeo" que ocurría al recargar la página (`F5`), donde la plataforma mostraba fugazmente la vista del 'Analizador' antes de redirigir a la sección guardada. La inicialización del estado ahora se ejecuta de forma síncrona antes del primer renderizado visual del navegador.
 - **Menú móvil vs. notificaciones**: Se ordenó la escala de `z-index` del frontend
   mediante variables CSS (`--z-navbar`, `--z-toast`, `--z-mobile-nav`,
   `--z-modal`). El drawer hamburguesa móvil ahora queda por encima de los

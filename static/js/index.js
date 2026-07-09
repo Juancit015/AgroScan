@@ -112,11 +112,32 @@ function crearToast({ tipo, titulo, descripcion, duracionMs }) {
   iniciarTemporizador();
 }
 
-function escaparHtml(texto) {
+function escaparHtml(text) {
+  if (!text) return '';
   const div = document.createElement('div');
-  div.textContent = texto;
+  div.innerText = text;
   return div.innerHTML;
 }
+
+// ── Inicialización de estado ─────────────────────────────────────
+(function initState() {
+  const seccionGuardada = localStorage.getItem('agroscan_seccion_actual');
+  if (seccionGuardada && seccionGuardada !== 'analizador') {
+    const link = document.querySelector(`.nav-link[data-section="${seccionGuardada}"]`);
+    if (link) {
+      // Ajustamos el DOM directamente antes del primer renderizado para evitar parpadeos
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      document.querySelectorAll(`.nav-link[data-section="${seccionGuardada}"]`).forEach(l => l.classList.add('active'));
+      document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
+      document.getElementById(`sec-${seccionGuardada}`).classList.add('activa');
+      
+      // Disparamos la carga de datos de forma asíncrona pero sin parpadeos visuales
+      if (seccionGuardada === 'historial') cargarHistorial();
+      if (seccionGuardada === 'dashboard') cargarDashboard();
+      if (seccionGuardada === 'admin') cargarAdmin();
+    }
+  }
+})();
 
 // ── Referencias DOM ──────────────────────────────────────────────
 const preview      = document.getElementById('preview');
@@ -198,6 +219,7 @@ document.querySelectorAll('.nav-link').forEach(link => {
   link.addEventListener('click', e => {
     e.preventDefault();
     const sec = link.dataset.section;
+    localStorage.setItem('agroscan_seccion_actual', sec);
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
     document.querySelectorAll(`.nav-link[data-section="${sec}"]`).forEach(l => l.classList.add('active'));
     document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
