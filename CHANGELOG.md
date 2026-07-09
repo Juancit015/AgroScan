@@ -10,6 +10,10 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 
 ## [No publicado]
 
+### Agregado
+- **Modal de Eliminación de Usuario**: Se reemplazó el cuadro de diálogo por defecto del navegador (`confirm()`) por un panel (modal) de advertencia personalizado e integrado en la interfaz de usuario en la sección de administración, mejorando la coherencia visual.
+- **Tipografía Global**: Se aplicó la fuente **Montserrat** en toda la plataforma web (login, dashboard, paneles), exceptuando los reportes PDF generados en backend (los cuales mantienen Arial por seguridad de compatibilidad al imprimir).
+
 ### Corregido
 - **Menú móvil vs. notificaciones**: Se ordenó la escala de `z-index` del frontend
   mediante variables CSS (`--z-navbar`, `--z-toast`, `--z-mobile-nav`,

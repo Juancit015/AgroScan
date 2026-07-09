@@ -161,7 +161,7 @@ const emptyStatePlugin = {
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle    = '#9CA3AF';
-      ctx.font         = '13px Inter, sans-serif';
+      ctx.font         = '13px Montserrat, sans-serif';
       ctx.fillText(mensaje, width / 2, height / 2);
       ctx.restore();
     }
@@ -775,7 +775,7 @@ async function cargarDashboard() {
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { font: { family: 'Inter', size: 11 }, padding: 12, usePointStyle: true }
+          labels: { font: { family: 'Montserrat', size: 11 }, padding: 12, usePointStyle: true }
         }
       }
     };
@@ -1135,7 +1135,7 @@ async function abrirDetallesUsuario(event, uid) {
           <p>${u.localidad ? u.localidad + ', ' : ''}${u.region || ''} — Rol: ${u.rol}</p>
         </div>
       </div>
-      <h4 style="margin-bottom:1rem;font-family:'Syne',sans-serif;">Historial de Peticiones</h4>
+      <h4 style="margin-bottom:1rem;font-family:var(--font-sans);">Historial de Peticiones</h4>
       ${historialHtml}
     `;
   } catch(e) {
@@ -1209,21 +1209,35 @@ async function guardarUsuario() {
   } catch { mostrarErrorAdmin('Error de conexión.'); }
 }
 
-async function eliminarUsuario(uid, nombre) {
-  if (!confirm(`¿Eliminar a ${nombre}? Se borrarán también todos sus análisis.`)) return;
-  try {
-    const res = await fetch(`/admin/usuarios/${uid}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (res.ok) {
-      document.getElementById(`user-row-${uid}`)?.remove();
-      // Remove from cache
-      adminUsersCache = adminUsersCache.filter(u => u.id !== uid);
-      cargarAdminStats();
-      mostrarToast('success', 'Usuario eliminado', `${nombre} y su historial fueron eliminados.`);
-    } else {
-      mostrarToast('error', 'No se pudo eliminar', data.error);
-    }
-  } catch { mostrarToast('error', 'Error de conexión', 'No se pudo eliminar el usuario.'); }
+function eliminarUsuario(uid, nombre) {
+  const modal = document.getElementById('modal-confirmacion');
+  const texto = document.getElementById('modal-confirmacion-texto');
+  const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
+  const btnCancelar = document.getElementById('btn-cancelar-eliminar');
+
+  texto.innerHTML = `¿Estás seguro de que deseas eliminar a <strong>${nombre}</strong>?<br><br>Se borrarán también todos sus análisis de forma permanente.`;
+  modal.style.display = 'flex';
+
+  btnCancelar.onclick = () => {
+    modal.style.display = 'none';
+  };
+
+  btnConfirmar.onclick = async () => {
+    modal.style.display = 'none';
+    try {
+      const res = await fetch(`/admin/usuarios/${uid}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById(`user-row-${uid}`)?.remove();
+        // Remove from cache
+        adminUsersCache = adminUsersCache.filter(u => u.id !== uid);
+        cargarAdminStats();
+        mostrarToast('success', 'Usuario eliminado', `${nombre} y su historial fueron eliminados.`);
+      } else {
+        mostrarToast('error', 'No se pudo eliminar', data.error);
+      }
+    } catch { mostrarToast('error', 'Error de conexión', 'No se pudo eliminar el usuario.'); }
+  };
 }
 
 function mostrarErrorAdmin(msg) {
