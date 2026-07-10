@@ -1,3 +1,6 @@
+# Variables de entorno (contienen API keys)
+.env
+
 # Base de datos local (se regenera sola al arrancar app.py)
 agroscan.db
 
