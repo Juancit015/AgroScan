@@ -1,6 +1,3 @@
-# Secretos — nunca subir la API key
-.env
-
 # Base de datos local (se regenera sola al arrancar app.py)
 agroscan.db
 
