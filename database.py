@@ -164,6 +164,31 @@ def obtener_historial(usuario_id):
     return result
 
 
+def eliminar_analisis(analisis_id, usuario_id):
+    """
+    Elimina uno o varios análisis. analisis_id puede ser un int (uno solo)
+    o una lista de ints (eliminación masiva). Se verifica que cada registro
+    pertenezca al usuario_id antes de borrarlo.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    if isinstance(analisis_id, (list, tuple)):
+        placeholders = ",".join("?" * len(analisis_id))
+        cur.execute(
+            f"DELETE FROM analisis WHERE id IN ({placeholders}) AND usuario_id = ?",
+            (*analisis_id, usuario_id)
+        )
+    else:
+        cur.execute(
+            "DELETE FROM analisis WHERE id = ? AND usuario_id = ?",
+            (analisis_id, usuario_id)
+        )
+    deleted = cur.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+
 def obtener_analisis_por_id(analisis_id, usuario_id):
     """
     Devuelve un único análisis, verificando que pertenezca a usuario_id

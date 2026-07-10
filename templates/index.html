@@ -227,18 +227,44 @@
 
     <!-- ══ HISTORIAL ══ -->
     <section id="sec-historial" class="seccion">
-      <div class="seccion-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+      <div class="seccion-header" style="display: flex; flex-direction: column; gap: 1rem;">
         <div>
           <h2>Historial de análisis</h2>
           <p>Todos tus diagnósticos guardados</p>
         </div>
-        <div>
-          <select id="historial-filtro-cultivo" class="admin-input" style="min-width: 200px; padding: 0.5rem; font-size: 0.9rem;" onchange="renderHistorial()">
-            <option value="">Todos los cultivos</option>
+        <div class="historial-toolbar" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <input type="text" id="historial-buscar" class="admin-input" placeholder="Buscar por cultivo o enfermedad..." style="flex: 1; min-width: 200px;" oninput="renderHistorial(true)"/>
+          
+          <select id="historial-filtro-estado" class="admin-input" style="flex: 0 1 auto; min-width: 150px;" onchange="renderHistorial(true)">
+            <option value="">Todos los estados</option>
+            <option value="sanos">Solo Sanos</option>
+            <option value="enfermos">Con Enfermedades</option>
           </select>
+
+          <button id="btn-seleccionar-historial" class="btn-secundario btn-sm" style="flex: 0 1 auto; padding: 0.5rem 0.8rem;" onclick="toggleModoSeleccion()" title="Seleccionar registros">
+            ☑️
+          </button>
+
+          <button id="btn-vista-historial" class="btn-secundario btn-sm" style="flex: 0 1 auto; padding: 0.5rem 0.8rem;" onclick="toggleVistaHistorial()" title="Cambiar Vista">
+            <svg id="icon-lista" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            <svg id="icon-cuadricula" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          </button>
         </div>
       </div>
+
+      <!-- Barra de acción al seleccionar -->
+      <div id="historial-barra-accion" class="historial-barra-accion">
+        <span class="barra-info" id="barra-seleccion-texto">0 seleccionados</span>
+        <div class="barra-acciones">
+          <button class="btn-barra-cancelar" onclick="cancelarSeleccion()">Cancelar</button>
+          <button class="btn-barra-eliminar" onclick="confirmarEliminarSeleccion()">🗑️ Eliminar seleccionados</button>
+        </div>
+      </div>
+
       <div id="historial-lista" class="historial-grid"><div class="cargando">Cargando historial...</div></div>
+      <div id="historial-cargar-mas-wrap" style="display:none;">
+        <button class="btn-cargar-mas" onclick="cargarMasHistorial()">Cargar más registros</button>
+      </div>
     </section>
 
     <!-- ══ DASHBOARD ══ -->
@@ -370,6 +396,17 @@
         <div id="modal-cuerpo">
            <!-- Content loaded via JS -->
            <div class="cargando">Cargando detalles...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Análisis del Historial -->
+    <div id="modal-historial-analisis" class="modal-overlay" style="display:none; z-index: var(--z-modal);" onclick="if(event.target===this)cerrarModalHistorial()">
+      <div class="modal-contenido" style="max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; padding-top: 2.5rem; position: relative;">
+        <button onclick="cerrarModalHistorial()" style="position: absolute; top: 15px; right: 15px; background: #fee2e2; color: #dc2626; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 1.4rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height:1; transition: 0.2s; box-shadow: 0 2px 6px rgba(220,38,38,0.3);" onmouseover="this.style.background='#fecaca';this.style.transform='scale(1.1)'" onmouseout="this.style.background='#fee2e2';this.style.transform='scale(1)'">&times;</button>
+        <div id="modal-historial-cuerpo">
+           <!-- Content loaded via JS -->
+           <div class="cargando">Cargando análisis...</div>
         </div>
       </div>
     </div>

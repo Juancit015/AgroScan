@@ -301,17 +301,92 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 .resultado-error p{font-size:.9rem;color:var(--texto-suave);}
 
 /* ── Historial ── */
-.historial-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;}
-.historial-card{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(27,67,50,0.10), 0 1px 4px rgba(0,0,0,0.05);border-left:4px solid var(--verde-claro);border-bottom:3px solid var(--verde-claro);transition:transform 0.2s, box-shadow 0.2s;}
-.historial-card:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(27,67,50,0.15), 0 2px 8px rgba(0,0,0,0.08);}
-.historial-img{width:100%;height:140px;object-fit:cover;display:block;}
-.historial-img-placeholder{width:100%;height:140px;background:#f1f0ed;display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:var(--gris-medio);}
-.historial-body{padding:1rem;}
-.historial-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem;}
-.historial-cultivo{font-family:var(--font-sans);font-weight:700;font-size:1rem;color:var(--verde-profundo);}
-.historial-fecha{font-size:.72rem;color:var(--texto-suave);}
-.historial-maduracion{font-size:.8rem;font-weight:600;color:var(--verde-medio);margin-bottom:.4rem;}
-.historial-enfermedad-tag{display:inline-block;background:#FEF3C7;color:#92400E;font-size:.72rem;padding:.15rem .5rem;border-radius:99px;margin-top:.25rem;margin-right:.25rem;}
+.historial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem; }
+.historial-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(27,67,50,0.10), 0 1px 4px rgba(0,0,0,0.05); border-left: 4px solid var(--verde-claro); border-bottom: 3px solid var(--verde-claro); transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column; position: relative; }
+.historial-card:hover { transform: translateY(-4px); box-shadow: 0 10px 36px rgba(27,67,50,0.18), 0 2px 8px rgba(0,0,0,0.08); }
+.historial-img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.historial-img-placeholder { width: 100%; height: 140px; background: #f1f0ed; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: var(--gris-medio); }
+.historial-info { padding: 1rem; display: flex; flex-direction: column; flex: 1; }
+.historial-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: .5rem; }
+.historial-cultivo { font-family: var(--font-sans); font-weight: 700; font-size: 1rem; color: var(--verde-profundo); }
+.historial-fecha { font-size: .72rem; color: var(--texto-suave); white-space: nowrap; }
+.historial-maduracion { font-size: .8rem; font-weight: 600; color: var(--verde-medio); margin-bottom: .4rem; }
+.historial-enfermedad-tag { display: inline-block; background: #FEF3C7; color: #92400E; font-size: .72rem; padding: .15rem .5rem; border-radius: 99px; margin-top: .25rem; margin-right: .25rem; }
+.historial-confianza-wrap { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.historial-confianza-track { flex: 1; height: 6px; background: var(--gris-suave); border-radius: 99px; overflow: hidden; }
+.historial-confianza-pct { font-size: .75rem; font-weight: 700; color: var(--texto-suave); }
+
+.historial-fecha-header { grid-column: 1 / -1; font-family: var(--font-sans); font-size: 1.1rem; font-weight: 700; color: var(--verde-profundo); margin-top: 1rem; margin-bottom: 0.4rem; border-bottom: 2px solid var(--gris-suave); padding-bottom: 0.3rem; }
+
+/* ── Checkbox (modo selección) ── */
+/* El checkbox flota sobre la imagen SIN desplazar ningún elemento */
+.historial-checkbox {
+  position: absolute; top: 10px; left: 10px; z-index: 5;
+  width: 22px; height: 22px; cursor: pointer;
+  accent-color: var(--verde-profundo);
+  opacity: 0; transition: opacity 0.15s; pointer-events: none;
+  /* Pequeño fondo blanco para que se vea sobre cualquier imagen */
+  background: white; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.historial-modo-seleccion .historial-checkbox { opacity: 1; pointer-events: auto; }
+.historial-card.seleccionada { outline: 2px solid var(--verde-profundo); outline-offset: 2px; background: #f0fdf4; }
+.historial-card.seleccionada .historial-checkbox { opacity: 1 !important; }
+/* En vista de cuadrícula el padding-left en modo selección NO se aplica 
+   porque el checkbox ya flota absolutamente sobre la imagen */
+.historial-grid.historial-modo-seleccion .historial-card { padding-left: 0 !important; }
+
+/* ── Vista compacta ── */
+.historial-vista-compacta { display: flex; flex-direction: column; gap: 0.75rem; }
+.historial-vista-compacta .historial-card {
+  flex-direction: row; align-items: center;
+  border-bottom: none; border-left: 4px solid var(--verde-claro);
+  padding: 0.7rem 1rem; gap: 1rem; cursor: pointer;
+  /* overflow visible para que la sombra no se recorte en hover */
+  overflow: visible; border-radius: 10px;
+}
+/* En compacta, el hover sube la tarjeta en el eje Y — 
+   como hay gap, nunca se tocará con la de arriba */
+.historial-vista-compacta .historial-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(27,67,50,0.18); }
+.historial-vista-compacta .historial-img-wrap { width: 80px; height: 80px; flex-shrink: 0; overflow: hidden; border-radius: 8px; margin: 0; }
+.historial-vista-compacta .historial-img { width: 100%; height: 100%; border-radius: 8px; }
+.historial-vista-compacta .historial-img-placeholder { height: 100%; border-radius: 8px; font-size: 1.4rem; }
+.historial-vista-compacta .historial-info { padding: 0; flex-direction: row; align-items: center; justify-content: space-between; gap: 1.2rem; flex: 1; overflow: hidden; }
+.historial-vista-compacta .historial-card-header { flex-direction: column; margin: 0; min-width: 150px; overflow: hidden; }
+.historial-vista-compacta .historial-cultivo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.historial-vista-compacta .historial-maduracion { margin: 0; min-width: 100px; }
+.historial-vista-compacta .historial-confianza-wrap { min-width: 120px; margin: 0; }
+.historial-vista-compacta .historial-enfermedad-tag { margin: 0 0.2rem; }
+/* En compacta, el checkbox también flota pero ajustado a la fila */
+.historial-vista-compacta .historial-checkbox { top: 50%; transform: translateY(-50%); left: 8px; }
+/* En compacta con selección, sí indentamos para no tapar la imagen */
+.historial-vista-compacta.historial-modo-seleccion .historial-card { padding-left: 2.5rem !important; }
+
+@media (max-width: 768px) {
+  .historial-vista-compacta .historial-info { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+  .historial-vista-compacta .historial-card { align-items: flex-start; }
+}
+
+/* ── Barra de acción flotante ── */
+.historial-barra-accion {
+  display: none; position: sticky; bottom: 1.5rem; z-index: 10;
+  background: var(--verde-profundo); color: white; border-radius: 12px;
+  padding: 0.8rem 1.2rem; margin-top: 1rem;
+  box-shadow: 0 8px 24px rgba(27,67,50,0.35);
+  align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  animation: slideUp 0.2s ease;
+}
+.historial-barra-accion.visible { display: flex; }
+.historial-barra-accion .barra-info { font-weight: 700; font-size: 0.95rem; }
+.historial-barra-accion .barra-acciones { display: flex; gap: 0.6rem; }
+.btn-barra-cancelar { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 0.4rem 0.9rem; border-radius: 8px; cursor: pointer; font-family: var(--font-sans); font-size: 0.85rem; transition: 0.2s; }
+.btn-barra-cancelar:hover { background: rgba(255,255,255,0.25); }
+.btn-barra-eliminar { background: #ef4444; color: white; border: none; padding: 0.4rem 0.9rem; border-radius: 8px; cursor: pointer; font-family: var(--font-sans); font-weight: 700; font-size: 0.85rem; transition: 0.2s; }
+.btn-barra-eliminar:hover { background: #dc2626; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Botón cargar más ── */
+.btn-cargar-mas { display: block; margin: 1.5rem auto 0; padding: 0.65rem 2rem; background: white; border: 2px solid var(--verde-profundo); color: var(--verde-profundo); border-radius: 10px; font-family: var(--font-sans); font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+.btn-cargar-mas:hover { background: var(--verde-profundo); color: white; }
 
 /* ── Dashboard ── */
 .status-bar{background:#fff;border-radius:12px;padding:.9rem 1.25rem;margin-bottom:1.25rem;display:flex;gap:1.5rem;align-items:center;box-shadow:0 2px 12px rgba(0,0,0,.06);flex-wrap:wrap;font-size:.82rem;color:var(--texto-suave);}
@@ -463,9 +538,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
   width: 100%;
   height: 150px;
   overflow: hidden;
-  border-radius: 8px 8px 0 0;
-  margin: -1.2rem -1.2rem 1rem -1.2rem;
-  width: calc(100% + 2.4rem);
+  flex-shrink: 0;
 }
 
 .historial-img {
@@ -495,7 +568,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
   letter-spacing: 0.5px;
 }
 
-.historial-info { display: flex; flex-direction: column; gap: 0.5rem; padding: 0 0.2rem 0.4rem; }
+.historial-info { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.8rem; }
 
 .historial-confianza-wrap {
   display: flex;

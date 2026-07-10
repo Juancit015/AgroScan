@@ -20,7 +20,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from functools import wraps
 from database import (inicializar_db, buscar_usuario_por_dni, guardar_analisis,
-                      obtener_historial, obtener_estadisticas,
+                      obtener_historial, obtener_estadisticas, eliminar_analisis,
                       obtener_todos_usuarios, agregar_usuario, eliminar_usuario,
                       editar_usuario, nombre_en_uso, actualizar_avatar,
                       obtener_estadisticas_globales, obtener_analisis_por_id)
@@ -282,6 +282,31 @@ def historial():
     if "usuario_id" not in session:
         return jsonify({"error": "No has iniciado sesión"}), 401
     return jsonify(obtener_historial(session["usuario_id"]))
+
+
+@app.route("/historial/eliminar", methods=["POST"])
+def historial_eliminar():
+    """
+    Elimina uno o varios análisis del usuario autenticado.
+    Body JSON: { "ids": [1, 2, 3] }  (lista de IDs a eliminar)
+    """
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesión"}), 401
+
+    data = request.get_json() or {}
+    ids = data.get("ids", [])
+
+    if not ids or not isinstance(ids, list):
+        return jsonify({"error": "Lista de IDs inválida"}), 400
+
+    # Validar que todos sean enteros
+    try:
+        ids = [int(i) for i in ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "IDs deben ser números enteros"}), 400
+
+    deleted = eliminar_analisis(ids, session["usuario_id"])
+    return jsonify({"eliminados": deleted, "mensaje": f"{deleted} registro(s) eliminado(s) correctamente"})
 
 @app.route("/chat", methods=["POST"])
 def chat_diagnostico():

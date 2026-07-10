@@ -26,6 +26,25 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
   locales en `static/assets/emoji/` y el template backend los incrusta como
   imágenes, evitando cuadros vacíos en secciones como "Observaciones Visuales"
   y "Tratamiento Recomendado".
+- **Checkbox en modo selección del historial**: Al hacer clic en una tarjeta
+  del historial con el modo selección activado, la palomita del checkbox no
+  se marcaba visualmente — solo se actualizaba la clase de la tarjeta. Se
+  sincronizó la propiedad `checked` del `<input>` directamente en el DOM
+  dentro de `toggleSeleccionItem()`.
+- **Botón de cierre duplicado en modal de historial**: El modal de detalle
+  de análisis tenía dos botones "×" para cerrar — uno con estilo rojo
+  (HTML) y otro sin diseño (generado por JS). Se eliminó el duplicado del
+  cuerpo generado por JavaScript, dejando solo el botón estilizado del HTML.
+- **Maquetación de tarjetas del historial**: Se corrigieron problemas de
+  layout en ambas vistas (normal y compacto). Se eliminaron los márgenes
+  negativos de `.historial-img-wrap` que causaban desbordamiento de la
+  imagen. Se incrementó el padding de `.historial-info` para separar
+  correctamente el contenido de la imagen. Se agregó `margin: 0` en la
+  vista compacta para evitar que la imagen de 56px se desplace fuera de
+  la tarjeta.
+- **Tamaño de imagen en modo compacto**: Se aumentó la imagen de 56×56 a
+  80×80 para que ocupe mejor el espacio disponible en el lado izquierdo
+  de la tarjeta.
 
 ### Por hacer (roadmap)
 - Comparación temporal entre análisis del mismo cultivo (antes / después)

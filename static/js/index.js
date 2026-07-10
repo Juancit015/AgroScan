@@ -714,29 +714,222 @@ function mostrarError(msg)    {
 }
 
 // ── Historial ────────────────────────────────────────────────────
-function renderHistorial() {
+let historialPaginaActual = 1;
+const HISTORIAL_POR_PAGINA = 15;
+let historialFiltradoCache = [];
+let historialModoSeleccion = false;
+let historialSeleccionados = new Set();
+
+function toggleVistaHistorial() {
   const lista = document.getElementById('historial-lista');
-  const filtroVal = document.getElementById('historial-filtro-cultivo').value;
+  const iconLista = document.getElementById('icon-lista');
+  const iconCuadricula = document.getElementById('icon-cuadricula');
+  if (lista.classList.contains('historial-vista-compacta')) {
+    lista.classList.remove('historial-vista-compacta');
+    iconLista.style.display = 'block';
+    iconCuadricula.style.display = 'none';
+  } else {
+    lista.classList.add('historial-vista-compacta');
+    iconLista.style.display = 'none';
+    iconCuadricula.style.display = 'block';
+  }
+}
+
+function toggleModoSeleccion() {
+  historialModoSeleccion = !historialModoSeleccion;
+  historialSeleccionados.clear();
+  const lista = document.getElementById('historial-lista');
+  const btn = document.getElementById('btn-seleccionar-historial');
+  lista.classList.toggle('historial-modo-seleccion', historialModoSeleccion);
+  btn.style.background = historialModoSeleccion ? 'var(--verde-profundo)' : '';
+  btn.style.color = historialModoSeleccion ? 'white' : '';
+  actualizarBarraSeleccion();
+  renderHistorial(false); // re-render para mostrar/ocultar checkboxes
+}
+
+function cancelarSeleccion() {
+  historialModoSeleccion = false;
+  historialSeleccionados.clear();
+  const lista = document.getElementById('historial-lista');
+  const btn = document.getElementById('btn-seleccionar-historial');
+  lista.classList.remove('historial-modo-seleccion');
+  btn.style.background = '';
+  btn.style.color = '';
+  actualizarBarraSeleccion();
+  renderHistorial(false);
+}
+
+function toggleSeleccionItem(id, e) {
+  if (e) e.stopPropagation();
+  if (historialSeleccionados.has(id)) {
+    historialSeleccionados.delete(id);
+  } else {
+    historialSeleccionados.add(id);
+  }
+  const card = document.querySelector(`.historial-card[data-id="${id}"]`);
+  if (card) {
+    card.classList.toggle('seleccionada', historialSeleccionados.has(id));
+    const checkbox = card.querySelector('.historial-checkbox');
+    if (checkbox) checkbox.checked = historialSeleccionados.has(id);
+  }
+  actualizarBarraSeleccion();
+}
+
+function actualizarBarraSeleccion() {
+  const barra = document.getElementById('historial-barra-accion');
+  const texto = document.getElementById('barra-seleccion-texto');
+  const n = historialSeleccionados.size;
+  if (historialModoSeleccion && n > 0) {
+    barra.classList.add('visible');
+    texto.textContent = `${n} registro${n > 1 ? 's' : ''} seleccionado${n > 1 ? 's' : ''}`;
+  } else {
+    barra.classList.remove('visible');
+  }
+}
+
+function confirmarEliminarSeleccion() {
+  const ids = [...historialSeleccionados];
+  if (!ids.length) return;
+  const n = ids.length;
+  mostrarConfirmacionEliminar(
+    `¿Eliminar ${n} registro${n > 1 ? 's' : ''} seleccionado${n > 1 ? 's' : ''}?`,
+    `Esta acción es permanente y no se puede deshacer. Se eliminarán ${n} análisis de tu historial.`,
+    async () => {
+      try {
+        const res = await fetch('/historial/eliminar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.historialData = (window.historialData || []).filter(i => !ids.includes(i.id));
+          cancelarSeleccion();
+          renderHistorial(true);
+          mostrarToast('success', 'Registros eliminados', data.mensaje);
+        } else {
+          mostrarToast('error', 'Error', data.error);
+        }
+      } catch { mostrarToast('error', 'Error de conexión', 'No se pudieron eliminar los registros.'); }
+    }
+  );
+}
+
+function eliminarAnalisisUnico(id, nombre) {
+  mostrarConfirmacionEliminar(
+    `¿Eliminar el análisis de ${nombre}?`,
+    'Esta acción es permanente. Se eliminará este diagnóstico de tu historial.',
+    async () => {
+      try {
+        const res = await fetch('/historial/eliminar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [id] })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.historialData = (window.historialData || []).filter(i => i.id !== id);
+          cerrarModalHistorial();
+          renderHistorial(true);
+          mostrarToast('success', 'Registro eliminado', data.mensaje);
+        } else {
+          mostrarToast('error', 'Error', data.error);
+        }
+      } catch { mostrarToast('error', 'Error de conexión', 'No se pudo eliminar el registro.'); }
+    }
+  );
+}
+
+function mostrarConfirmacionEliminar(titulo, descripcion, onConfirmar) {
+  const modal = document.getElementById('modal-confirmacion');
+  const texto = document.getElementById('modal-confirmacion-texto');
+  const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
+  const btnCancelar = document.getElementById('btn-cancelar-eliminar');
+  texto.innerHTML = `<strong style="display:block;margin-bottom:0.5rem;">${titulo}</strong><span style="font-size:0.9rem;color:#64748b;">${descripcion}</span>`;
+  modal.style.display = 'flex';
+  btnCancelar.onclick = () => { modal.style.display = 'none'; };
+  btnConfirmar.onclick = async () => { modal.style.display = 'none'; await onConfirmar(); };
+}
+
+function cargarMasHistorial() {
+  historialPaginaActual++;
+  renderHistorial(false);
+}
+
+function getFechaGrupo(fechaStr) {
+  if (!fechaStr) return 'Desconocido';
+  const date = new Date(fechaStr);
+  if (isNaN(date)) return fechaStr.split(' ')[0];
+  
+  const hoy = new Date();
+  const ayer = new Date(hoy);
+  ayer.setDate(ayer.getDate() - 1);
+  
+  const dString = date.toLocaleDateString();
+  if (dString === hoy.toLocaleDateString()) return 'Hoy';
+  if (dString === ayer.toLocaleDateString()) return 'Ayer';
+  
+  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function renderHistorial(reiniciarPagina = false) {
+  const lista = document.getElementById('historial-lista');
+  const busquedaVal = document.getElementById('historial-buscar').value.toLowerCase();
+  const estadoVal = document.getElementById('historial-filtro-estado').value;
   const data = window.historialData || [];
 
-  const filtrados = filtroVal ? data.filter(item => (item.cultivo || 'Desconocido') === filtroVal) : data;
+  if (reiniciarPagina) {
+    historialPaginaActual = 1;
+    historialFiltradoCache = data.filter(item => {
+      // 1. Filtro texto
+      const textMatch = !busquedaVal || 
+                        (item.cultivo || '').toLowerCase().includes(busquedaVal) ||
+                        (item.enfermedades || []).some(e => e.nombre.toLowerCase().includes(busquedaVal));
+      if (!textMatch) return false;
+      
+      // 2. Filtro estado
+      if (estadoVal === 'sanos' && (item.enfermedades && item.enfermedades.length > 0)) return false;
+      if (estadoVal === 'enfermos' && (!item.enfermedades || item.enfermedades.length === 0)) return false;
+      
+      return true;
+    });
+  }
 
-  if (!filtrados.length) { 
-    lista.innerHTML = '<div class="cargando">No hay análisis para este cultivo.</div>'; 
+  const itemsAMostrar = historialFiltradoCache.slice(0, historialPaginaActual * HISTORIAL_POR_PAGINA);
+
+  if (!itemsAMostrar.length) { 
+    lista.innerHTML = '<div class="cargando">No se encontraron análisis.</div>'; 
     return; 
   }
 
-  lista.innerHTML = filtrados.map(item => {
+  let html = '';
+  let ultimoGrupo = null;
+
+  itemsAMostrar.forEach(item => {
+    const grupo = getFechaGrupo(item.fecha);
+    if (grupo !== ultimoGrupo) {
+      html += `<div class="historial-fecha-header">${grupo}</div>`;
+      ultimoGrupo = grupo;
+    }
+
     const imgHtml = item.imagen_path
       ? `<div class="historial-img-wrap"><img src="/static/${item.imagen_path}" alt="${item.cultivo}" class="historial-img"/></div>`
       : `<div class="historial-img-wrap historial-img-placeholder">📷</div>`;
 
-    const enfsHtml = (item.enfermedades||[]).map(e =>
-      `<span class="historial-enfermedad-tag">⚠️ ${e.nombre}</span>`
-    ).join('') || '<span class="historial-enfermedad-tag historial-tag-sano">✅ Sano</span>';
+    const enfs = item.enfermedades || [];
+    const estaEnfermo = enfs.length > 0;
+    const enfsHtml = estaEnfermo
+      ? enfs.map(e => `<span class="historial-enfermedad-tag">⚠️ ${e.nombre}</span>`).join('')
+      : '<span class="historial-enfermedad-tag historial-tag-sano" style="background:#d1fae5;color:#065f46;">✅ Sano</span>';
 
-    return `
-      <div class="historial-card">
+    const borderColor = estaEnfermo ? '#ef4444' : 'var(--verde-claro)';
+
+    html += `
+      <div class="historial-card ${historialSeleccionados.has(item.id) ? 'seleccionada' : ''}" data-id="${item.id}"
+           onclick="${historialModoSeleccion ? `toggleSeleccionItem(${item.id}, event)` : `abrirDetalleHistorial(${item.id})`}"
+           style="border-left-color:${borderColor}; border-bottom-color:${borderColor}; cursor:pointer;">
+        <input type="checkbox" class="historial-checkbox" ${historialSeleccionados.has(item.id) ? 'checked' : ''}
+               onclick="toggleSeleccionItem(${item.id}, event)" />
         ${imgHtml}
         <div class="historial-info">
           <div class="historial-card-header">
@@ -754,7 +947,128 @@ function renderHistorial() {
           <div>${enfsHtml}</div>
         </div>
       </div>`;
-  }).join('');
+  });
+
+  lista.innerHTML = html;
+
+  // Mostrar u ocultar botón "Cargar más"
+  const wrapCargar = document.getElementById('historial-cargar-mas-wrap');
+  if (wrapCargar) {
+    wrapCargar.style.display = itemsAMostrar.length < historialFiltradoCache.length ? 'block' : 'none';
+  }
+}
+
+function abrirDetalleHistorial(id) {
+  const data = (window.historialData || []).find(item => item.id === id);
+  if (!data) return;
+
+  const modal = document.getElementById('modal-historial-analisis');
+  const cuerpo = document.getElementById('modal-historial-cuerpo');
+
+  const enfs = data.enfermedades || [];
+  const enfsHtml = enfs.length > 0 
+    ? enfs.map(e => `
+        <div style="background:#FEF3C7; padding:1rem; border-radius:8px; margin-bottom:1rem; border-left:4px solid #F59E0B;">
+          <h4 style="margin:0; color:#92400E; display:flex; justify-content:space-between; align-items:center;">
+            ${e.nombre} 
+            <span style="font-size:0.75rem; background:#fff; padding:2px 6px; border-radius:4px; font-weight:bold;">${e.severidad}</span>
+          </h4>
+          <p style="margin:0.5rem 0 0; font-size:0.9rem; line-height:1.4;">${e.descripcion}</p>
+        </div>
+      `).join('')
+    : `<div style="background:#d1fae5; padding:1rem; border-radius:8px; margin-bottom:1rem; border-left:4px solid #10b981;">
+         <h4 style="margin:0; color:#065f46;">✅ Sano</h4>
+         <p style="margin:0.5rem 0 0; font-size:0.9rem;">No se detectaron enfermedades.</p>
+       </div>`;
+
+  const imgHtml = data.imagen_path
+      ? `<img src="/static/${data.imagen_path}" style="width:100%; height:220px; object-fit:cover; border-radius:8px; margin-bottom:1rem; box-shadow:0 2px 8px rgba(0,0,0,0.1);"/>`
+      : '';
+
+  cuerpo.innerHTML = `
+    <h2 style="margin:0 0 0.2rem 0; color:var(--verde-profundo); font-family:var(--font-sans); font-size:1.5rem;">${data.cultivo || 'Desconocido'}</h2>
+    <p style="color:var(--texto-suave); font-size:0.85rem; margin-bottom:1.5rem;">${formatearFecha(data.fecha)}</p>
+    
+    ${imgHtml}
+    
+    <div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+      <div style="flex:1; background:#f8fafc; padding:1rem; border-radius:8px; border:1px solid #e2e8f0; min-width:140px;">
+        <strong style="display:block; font-size:0.75rem; color:var(--texto-suave); margin-bottom:0.2rem; text-transform:uppercase; letter-spacing:0.5px;">Estado de Maduración</strong>
+        <span style="font-weight:700; color:var(--verde-medio); font-size:1.1rem;">${data.maduracion || '—'}</span>
+      </div>
+      <div style="flex:1; background:#f8fafc; padding:1rem; border-radius:8px; border:1px solid #e2e8f0; min-width:140px;">
+        <strong style="display:block; font-size:0.75rem; color:var(--texto-suave); margin-bottom:0.2rem; text-transform:uppercase; letter-spacing:0.5px;">Confianza de la IA</strong>
+        <span style="font-weight:800; font-size:1.1rem; color:${data.confianza >= 80 ? 'var(--verde)' : data.confianza >= 60 ? '#d97706' : 'var(--rojo)'};">${data.confianza}%</span>
+      </div>
+    </div>
+
+    <h3 style="margin-bottom:0.8rem; font-size:1.1rem; border-bottom:2px solid #f1f5f9; padding-bottom:0.4rem;">Diagnóstico</h3>
+    ${enfsHtml}
+
+    ${(data.zona_afectada && data.zona_afectada.descripcion && enfs.length > 0) ? `
+      <div style="background:#fff7ed; padding:1rem; border-radius:8px; margin-bottom:1rem; border-left:4px solid #f97316; margin-top:-0.5rem;">
+        <strong style="font-size:0.8rem; color:#c2410c; text-transform:uppercase; letter-spacing:0.5px;">📍 Zona Afectada</strong>
+        <p style="margin:0.3rem 0 0; font-size:0.9rem; color:#9a3412;">${data.zona_afectada.descripcion}</p>
+      </div>
+    ` : ''}
+
+    ${(data.explicacion && data.explicacion.length > 0) ? `
+      <h3 style="margin-bottom:0.8rem; font-size:1.1rem; margin-top:1.5rem; border-bottom:2px solid #f1f5f9; padding-bottom:0.4rem;">🔍 ¿Por qué este diagnóstico?</h3>
+      <ul style="margin:0 0 1rem; padding-left:1.2rem; display:flex; flex-direction:column; gap:0.4rem;">
+        ${(data.explicacion || []).map(obs => `<li style="font-size:0.9rem; color:#334155; line-height:1.5;">${obs}</li>`).join('')}
+      </ul>
+    ` : ''}
+
+    <h3 style="margin-bottom:0.8rem; font-size:1.1rem; margin-top:1.5rem; border-bottom:2px solid #f1f5f9; padding-bottom:0.4rem;">Tratamiento Recomendado</h3>
+    <p style="font-size:0.95rem; line-height:1.6; color:#334155; white-space:pre-wrap;">${data.tratamiento || 'No requiere tratamiento fitosanitario especial.'}</p>
+
+    ${data.recomendacion_consumo ? `
+      <h3 style="margin-bottom:0.8rem; font-size:1.1rem; margin-top:1.5rem; color:#b45309; border-bottom:2px solid #fef3c7; padding-bottom:0.4rem;">Recomendación de Consumo</h3>
+      <p style="font-size:0.95rem; line-height:1.6; color:#92400E; background:#fffbeb; padding:1rem; border-radius:8px; border-left:4px solid #f59e0b;">${data.recomendacion_consumo}</p>
+    ` : ''}
+
+    ${(data.fuentes && data.fuentes.length > 0) ? `
+      <h3 style="margin-bottom:0.8rem; font-size:1.1rem; margin-top:1.5rem; border-bottom:2px solid #f1f5f9; padding-bottom:0.4rem;">📚 Fuentes Consultadas</h3>
+      <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem;">
+        ${(data.fuentes || []).map(f => {
+          const q = encodeURIComponent(f.institucion + ' ' + f.titulo);
+          return '<a href="https://www.google.com/search?q=' + q + '" target="_blank" style="display:flex; gap:0.5rem; align-items:center; padding:0.6rem 0.8rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; text-decoration:none; color:inherit; font-size:0.85rem;"><span style=\'font-weight:700; color:var(--verde-profundo); flex-shrink:0;\'>' + f.institucion + '</span><span style=\'color:var(--texto-suave);\'>🔍 ' + f.titulo + '</span></a>';
+        }).join('')}
+      </div>
+    ` : ''}
+
+    <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid #f1f5f9; display:flex; gap:0.8rem; justify-content:space-between; flex-wrap:wrap; align-items:center;">
+      <button onclick="eliminarAnalisisUnico(${data.id}, '${(data.cultivo||'Registro').replace(/'/g, "\\'")}')"
+        style="padding:0.5rem 1rem; background:#fef2f2; border:1px solid #fecaca; color:#dc2626; border-radius:8px; cursor:pointer; font-family:var(--font-sans); font-size:0.85rem; display:flex; align-items:center; gap:0.4rem;">
+        🗑️ Eliminar registro
+      </button>
+      <div style="display:flex; gap:0.8rem;">
+        <button onclick="cerrarModalHistorial()" style="padding:0.6rem 1.2rem; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-family:var(--font-sans); color:#334155; font-size:0.9rem;">Cerrar</button>
+        <a href="/reporte-pdf/${data.id}" target="_blank" style="padding:0.6rem 1.2rem; background:var(--verde-profundo); color:white; border-radius:8px; text-decoration:none; font-family:var(--font-sans); font-weight:600; font-size:0.9rem; display:flex; align-items:center; gap:0.4rem;">📄 Exportar PDF</a>
+      </div>
+    </div>
+  `;
+
+  document.body.style.overflow = 'hidden';
+  modal.style.display = 'flex';
+}
+
+function cerrarModalHistorial() {
+  document.getElementById('modal-historial-analisis').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function observarScrollHistorial() {
+  const trigger = document.getElementById('historial-scroll-trigger');
+  if (!trigger) return;
+  const observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      observer.disconnect();
+      historialPaginaActual++;
+      renderHistorial(false);
+    }
+  });
+  observer.observe(trigger);
 }
 
 async function cargarHistorial() {
@@ -771,13 +1085,7 @@ async function cargarHistorial() {
       return; 
     }
 
-    // Poblar el select con cultivos únicos
-    const select = document.getElementById('historial-filtro-cultivo');
-    const cultivosUnicos = [...new Set(data.map(item => item.cultivo || 'Desconocido'))].sort();
-    select.innerHTML = '<option value="">Todos los cultivos</option>' + 
-                       cultivosUnicos.map(c => `<option value="${c}">${c}</option>`).join('');
-
-    renderHistorial();
+    renderHistorial(true);
   } catch { lista.innerHTML = '<div class="cargando">Error al cargar historial.</div>'; }
 }
 
