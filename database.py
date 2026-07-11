@@ -441,6 +441,21 @@ def obtener_detalles_usuario_admin(usuario_id):
     return {"perfil": perfil, "historial": historial}
 
 
+def obtener_perfil(usuario_id):
+    """Devuelve datos del perfil del usuario autenticado."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, nombre, dni, rol, region, localidad, avatar_path,
+               (SELECT COUNT(*) FROM analisis WHERE usuario_id = usuarios.id) as total_analisis,
+               (SELECT fecha FROM analisis WHERE usuario_id = usuarios.id ORDER BY fecha ASC LIMIT 1) as fecha_registro
+        FROM usuarios WHERE id = ?
+    """, (usuario_id,))
+    row = cur.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
 def eliminar_usuario(usuario_id):
     conn = get_connection()
     cur = conn.cursor()

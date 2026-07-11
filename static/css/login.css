@@ -377,7 +377,18 @@ input[type="text"].error-input { border-color: var(--error); }
   .panel-izq { display: none; }
   .wrapper   { border-radius: 16px; min-height: auto; }
   .panel-der { padding: clamp(2rem, 8vw, 2.5rem) clamp(1.25rem, 6vw, 1.5rem); }
+  .logo-movil { display: flex !important; }
 }
+
+.logo-movil {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+.logo-movil img { height: 35px; width: auto; }
+.logo-movil .logo-text { color: var(--texto); font-size: 1.5rem; }
 
 /* Pantallas muy bajas en altura (móvil en horizontal, ventanas
    reducidas): se prioriza que todo el formulario quepa sin recortarse. */

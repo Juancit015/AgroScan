@@ -1,0 +1,460 @@
+commit 6ba472eee8e62b46fed1ead9cd33de96ceed6327
+Author: Juancit015 <juandavidriverahuancas0@gmail.com>
+Date:   Fri Jul 10 23:01:16 2026 -0500
+
+    Chat con emojis/negritas, fondo login, favicon fix, IA color PDF, rebranding completo
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 06855ed..f58ee08 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -11,10 +11,14 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
+ ## [No publicado]
+ 
+ ### Agregado
+-- **Modal de Eliminación de Usuario**: Se reemplazó el cuadro de diálogo por defecto del navegador (`confirm()`) por un panel (modal) de advertencia personalizado e integrado en la interfaz de usuario en la sección de administración, mejorando la coherencia visual.
+-- **Tipografía Global**: Se aplicó la fuente **Montserrat** en toda la plataforma web (login, dashboard, paneles), exceptuando los reportes PDF generados en backend (los cuales mantienen Arial por seguridad de compatibilidad al imprimir).
++- **Fondo personalizado en login**: Se agregó la imagen `chacra-peruana.jpg` como fondo de pantalla completa (cover) en la página de inicio de sesión, reemplazando el fondo crema sólido. Incluye overlay oscuro semitransparente para legibilidad.
++- **Rebranding global**: Se renombró la plataforma de **AgroScan** a **FrutIA**, actualizando logos, títulos, sistema de chat prompt, y PDF.
++- **Estilo marrón en "IA" del logo**: El fragmento "IA" del logo FrutIA hereda el color tierra (`#C8A96E`) que antes tenía "Scan", tanto en web como en reportes PDF.
++- **Emojis y negritas en chat**: Se actualizó el prompt del asistente para que sus respuestas incluyan emojis agrícolas (🌱🌿🍎 etc.) y palabras clave resaltadas con **negritas**. El frontend renderiza `**texto**` como `<strong>` y convierte viñetas `*` en `•`.
+ 
+ ### Corregido
++- **Favicon faltante en panel principal**: `index.html` apuntaba a `favicon.ico` inexistente; se redirigió al mismo `.png` que usa `login.html`.
++- **Color de IA en reporte PDF**: Se agregó regla CSS y span específico para que "IA" en el logo del PDF herede el color marrón de marca.
+ - **Parpadeo en la navegación**: Se solucionó un efecto visual de "parpadeo" que ocurría al recargar la página (`F5`), donde la plataforma mostraba fugazmente la vista del 'Analizador' antes de redirigir a la sección guardada. La inicialización del estado ahora se ejecuta de forma síncrona antes del primer renderizado visual del navegador.
+ - **Menú móvil vs. notificaciones**: Se ordenó la escala de `z-index` del frontend
+   mediante variables CSS (`--z-navbar`, `--z-toast`, `--z-mobile-nav`,
+diff --git a/app.py b/app.py
+index 7d36f92..b65440f 100644
+--- a/app.py
++++ b/app.py
+@@ -346,7 +346,12 @@ CONTEXTO DEL DIAGNÓSTICO ACTUAL:
+ - Tratamiento recomendado: {tratamiento}
+ - Localidad del agricultor: {localidad}
+ 
+-Responde de forma clara, práctica y breve (máximo 3-4 oraciones). Usa lenguaje sencillo, sin tecnicismos innecesarios. Si la pregunta es sobre el cultivo analizado, responde con precisión. Si es completamente ajena a la agronomía, indícalo amablemente y redirige la conversación al cultivo."""
++Responde de forma clara, práctica y breve (máximo 3-4 oraciones). Usa lenguaje sencillo, sin tecnicismos innecesarios.
++
++IMPORTANTE:
++- Incluye emojis relacionados al campo (🌱🌿🍎🌽🥬🚜💧☀️🐛🧑‍🌾✅⚠️❌🛑💊📚 según corresponda).
++- Usa **negritas** (con doble asterisco) para resaltar palabras clave como nombres de cultivos, enfermedades, tratamientos o datos importantes.
++- Si la pregunta es sobre el cultivo analizado, responde con precisión. Si es completamente ajena a la agronomía, indícalo amablemente y redirige la conversación al cultivo."""
+ 
+     # Armar historial de mensajes para la IA
+     messages_groq = [{"role": "system", "content": system_prompt}]
+diff --git a/chacra-peruana.jpg b/chacra-peruana.jpg
+new file mode 100644
+index 0000000..948e2a1
+Binary files /dev/null and b/chacra-peruana.jpg differ
+diff --git a/static/js/index.js b/static/js/index.js
+index 6fb1a1f..0f7e224 100644
+--- a/static/js/index.js
++++ b/static/js/index.js
+@@ -570,7 +570,11 @@ function chatAgregarBurbuja(texto, tipo) {
+   const cont = document.getElementById('chat-mensajes');
+   const div = document.createElement('div');
+   div.className = `chat-burbuja chat-burbuja-${tipo}`;
+-  div.textContent = texto;
++  let html = texto
++    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
++    .replace(/^\s*\* /gm, ' • ')
++    .replace(/\n/g, '<br>');
++  div.innerHTML = html;
+   cont.appendChild(div);
+   cont.scrollTop = cont.scrollHeight;
+   return div;
+
+commit 56b3ad951e5659048dd1962479f235e594d70d7a
+Author: Juancit015 <juandavidriverahuancas0@gmail.com>
+Date:   Fri Jul 10 22:33:10 2026 -0500
+
+    Rebranding AgroScan → FrutIA + fondo chacra-peruana en login
+
+diff --git a/.gitignore b/.gitignore
+index f17db62..c3e163d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,7 +2,7 @@
+ .env
+ 
+ # Base de datos local (se regenera sola al arrancar app.py)
+-agroscan.db
++frutia.db
+ 
+ # Imágenes analizadas por los usuarios
+ static/uploads/*
+diff --git a/ARCHITECTURE.md b/ARCHITECTURE.md
+index 2a31ca9..f70e6f3 100644
+--- a/ARCHITECTURE.md
++++ b/ARCHITECTURE.md
+@@ -1,4 +1,4 @@
+-# 🏗️ Arquitectura de AgroScan
++# 🏗️ Arquitectura de FrutIA
+ 
+ Este documento explica cómo están organizadas las piezas del proyecto, el
+ flujo de datos y el contrato de la API, pensado para que cualquier
+@@ -100,7 +100,7 @@ cuadros vacíos cuando el servidor no tiene instalada una fuente emoji completa.
+ 
+ ### 3.1 Motor
+ 
+-SQLite, archivo único `agroscan.db` en la raíz del proyecto. No requiere
++SQLite, archivo único `frutia.db` en la raíz del proyecto. No requiere
+ servidor de base de datos — ideal para una demo local o feria.
+ 
+ ### 3.2 Esquema
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 368d2d1..06855ed 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,6 +1,6 @@
+ # Changelog
+ 
+-Todos los cambios relevantes de AgroScan se documentan en este archivo.
++Todos los cambios relevantes de FrutIA se documentan en este archivo.
+ 
+ El formato sigue el espíritu de [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/):
+ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
+@@ -76,7 +76,7 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
+ 
+ ### Escaneo y Diagnóstico
+ - **Chat de Seguimiento Post-Diagnóstico**: Se incorporó un widget de chat conversacional directamente en el panel de resultados. El agricultor puede hacer preguntas libres sobre el cultivo recién analizado (clima, disponibilidad del tratamiento, plazo de cosecha, etc.) y la IA responde con el contexto exacto del diagnóstico. El historial del chat se reinicia con cada nuevo análisis. Nuevo endpoint `/chat`.
+-- **Alertas Epidemiológicas Regionales**: Sistema de "inteligencia comunitaria". Al finalizar un escaneo, AgroScan verifica en milisegundos si en la misma Localidad del usuario se han reportado múltiples casos de la misma enfermedad en los últimos 7 días. De ser así, despliega una alerta visual preventiva.
++- **Alertas Epidemiológicas Regionales**: Sistema de "inteligencia comunitaria". Al finalizar un escaneo, FrutIA verifica en milisegundos si en la misma Localidad del usuario se han reportado múltiples casos de la misma enfermedad en los últimos 7 días. De ser así, despliega una alerta visual preventiva.
+ - **Exportación a PDF**: Se incorporó la opción de "Exportar a PDF" el resultado de los análisis. Genera un reporte agronómico formal y maquetado (tamaño A4) ideal para impresión usando `html2pdf.js`.
+ - **Fuentes de Búsqueda Confiables**: Se mejoró el prompt de la IA para evitar "alucinaciones" de enlaces caídos. Ahora el sistema extrae el título e institución y construye un acceso rápido y directo mediante *Google Search*.
+ 
+@@ -243,7 +243,7 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
+ - Comentarios explicativos dentro de `analizar()` (el endpoint más complejo
+   del backend) describiendo el flujo de validación → guardado de imagen →
+   persistencia en BD.
+-- `.gitignore` para evitar subir `.env`, `agroscan.db` y las imágenes de
++- `.gitignore` para evitar subir `.env`, `frutia.db` y las imágenes de
+   `static/uploads/` a un repositorio.
+ 
+ ### Corregido
+diff --git a/README.md b/README.md
+index 44022a0..d2c3a90 100644
+--- a/README.md
++++ b/README.md
+@@ -1,7 +1,7 @@
+-# 🌱 AgroScan
++# 🌱 FrutIA
+ 
+ Diagnóstico inteligente de cultivos mediante visión artificial. Sube o captura
+-una foto de un cultivo y AgroScan identifica la especie, evalúa su estado de
++una foto de un cultivo y FrutIA identifica la especie, evalúa su estado de
+ madurez, detecta posibles enfermedades y recomienda un tratamiento — citando
+ fuentes agronómicas confiables.
+ 
+@@ -9,7 +9,7 @@ Proyecto desarrollado como herramienta de apoyo para la carrera de
+ Agropecuaria, con foco en cultivos de **Paijan, La Libertad, Perú** (región
+ líder en exportación de espárrago).
+ 
+-> ⚠️ AgroScan es un asistente de apoyo al diagnóstico. No reemplaza la
++> ⚠️ FrutIA es un asistente de apoyo al diagnóstico. No reemplaza la
+ > evaluación de un ingeniero agrónomo certificado.
+ 
+ ---
+@@ -52,11 +52,11 @@ líder en exportación de espárrago).
+ ## 📁 Estructura del proyecto
+ 
+ ```
+-AgroScan/
++FrutIA/
+ ├── app.py              # Rutas Flask, lógica de la API y llamada a Groq
+ ├── database.py         # Acceso a SQLite (usuarios, análisis, estadísticas)
+ ├── .env                # Variables de entorno (API key) — no se sube a git
+-├── agroscan.db          # Base de datos SQLite (se crea sola al arrancar)
++├── frutia.db          # Base de datos SQLite (se crea sola al arrancar)
+ ├── templates/
+ │   ├── login.html       # Pantalla de inicio de sesión
+ │   └── index.html       # App principal (analizador, historial, dashboard, admin)
+@@ -107,7 +107,7 @@ python3 app.py
+ 
+ Abre **http://127.0.0.1:5000** en el navegador.
+ 
+-La base de datos (`agroscan.db`) y sus tablas se crean automáticamente la
++La base de datos (`frutia.db`) y sus tablas se crean automáticamente la
+ primera vez que se ejecuta `app.py`, junto con 3 usuarios de ejemplo (ver
+ `database.py → inicializar_db()`).
+ 
+diff --git a/app.py b/app.py
+index fc37454..7d36f92 100644
+--- a/app.py
++++ b/app.py
+@@ -1,5 +1,5 @@
+ """
+-app.py — AgroScan backend (Flask)
++app.py — FrutIA backend (Flask)
+ 
+ Punto de entrada de la aplicación. Expone:
+   - Autenticación por clave de acceso (sesiones de Flask).
+@@ -33,7 +33,7 @@ load_dotenv()
+ 
+ app = Flask(__name__)
+ CORS(app)
+-app.secret_key = "agroscan_secret_2024"
++app.secret_key = "frutia_secret_2024"
+ 
+ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+ inicializar_db()
+@@ -337,7 +337,7 @@ def chat_diagnostico():
+ 
+     enf_texto = ", ".join([e.get("nombre", "") for e in enfermedades]) if enfermedades else "ninguna"
+ 
+-    system_prompt = f"""Eres el asistente agronómico de AgroScan, especializado en cultivos peruanos.
++    system_prompt = f"""Eres el asistente agronómico de FrutIA, especializado en cultivos peruanos.
+ Acabas de analizar un cultivo y el agricultor tiene preguntas de seguimiento.
+ 
+ CONTEXTO DEL DIAGNÓSTICO ACTUAL:
+@@ -407,7 +407,7 @@ REPORTE_PDF_TEMPLATE = """
+     size: A4;
+     margin: 18mm 16mm 22mm 16mm;
+     @bottom-center {
+-      content: "Generado automáticamente por AgroScan  |  {{ fecha }} {{ hora }}";
++      content: "Generado automáticamente por FrutIA  |  {{ fecha }} {{ hora }}";
+       font-size: 8px;
+       color: #9CA3AF;
+       font-family: Arial, sans-serif;
+@@ -448,6 +448,7 @@ REPORTE_PDF_TEMPLATE = """
+     font-size: 22px; font-weight: 800; color: #1B4332;
+     vertical-align: middle; letter-spacing: -0.5px;
+   }
++  .logo-texto .ia-marca { color: #C8A96E; }
+   .logo-sub { font-size: 10px; color: #6B7280; margin-top: 2px; }
+   .cab-fecha { text-align: right; vertical-align: middle; font-size: 10px; color: #9CA3AF; }
+ 
+@@ -535,9 +536,9 @@ REPORTE_PDF_TEMPLATE = """
+       <tr>
+         <td class="logo-wrap">
+           {% if logo_path %}
+-            <img src="{{ logo_path }}" class="logo-img" alt="AgroScan">
++            <img src="{{ logo_path }}" class="logo-img" alt="FrutIA">
+           {% endif %}
+-          <span class="logo-texto"><img src="{{ emoji.sprout }}" class="emoji-img emoji-logo" alt="">AgroScan</span>
++          <span class="logo-texto"><img src="{{ emoji.sprout }}" class="emoji-img emoji-logo" alt="">Frut<span class="ia-marca">IA</span></span>
+           <div class="logo-sub">Reporte de Diagnóstico Agronómico</div>
+         </td>
+         <td class="cab-fecha">{{ fecha }}<br>{{ hora }}</td>
+@@ -709,7 +710,7 @@ def reporte_pdf(analisis_id):
+         return jsonify({"error": f"Error al generar PDF: {str(e)}"}), 500
+ 
+     nombre_cultivo = (analisis.get("cultivo") or "Cultivo").replace(" ", "_")
+-    filename = f"AgroScan_Reporte_{nombre_cultivo}.pdf"
++    filename = f"FrutIA_Reporte_{nombre_cultivo}.pdf"
+ 
+     return send_file(
+         io.BytesIO(pdf_bytes),
+diff --git a/database.py b/database.py
+index 6773d6f..453685c 100644
+--- a/database.py
++++ b/database.py
+@@ -1,7 +1,7 @@
+ """
+-database.py — Capa de acceso a datos de AgroScan (SQLite)
++database.py — Capa de acceso a datos de FrutIA (SQLite)
+ 
+-Encapsula toda la interacción con agroscan.db. Ninguna otra parte del
++Encapsula toda la interacción con frutia.db. Ninguna otra parte del
+ proyecto ejecuta SQL directamente: app.py solo llama a las funciones
+ públicas definidas aquí (buscar_usuario_por_dni, guardar_analisis,
+ obtener_historial, etc.).
+@@ -20,7 +20,7 @@ ejemplo la primera vez que se ejecuta. Es seguro llamarla en cada arranque.
+ import sqlite3, json
+ from datetime import datetime, timedelta
+ 
+-DB_PATH = "agroscan.db"
++DB_PATH = "frutia.db"
+ 
+ 
+ def top5_y_otros(filas, clave_nombre="cultivo", clave_cantidad="cantidad"):
+diff --git a/static/assets/LEEME.txt b/static/assets/LEEME.txt
+index 17d196b..579bf3d 100644
+--- a/static/assets/LEEME.txt
++++ b/static/assets/LEEME.txt
+@@ -1,4 +1,4 @@
+-Coloca aquí el logotipo oficial de AgroScan con el nombre exacto: logo.png
++Coloca aquí el logotipo oficial de FrutIA con el nombre exacto: logo.png
+ 
+ Mientras este archivo no exista, la interfaz muestra automáticamente un
+ emoji 🌱 de respaldo en su lugar (login y barra de navegación), sin que
+diff --git a/static/assets/chacra-peruana.jpg b/static/assets/chacra-peruana.jpg
+new file mode 100644
+index 0000000..948e2a1
+Binary files /dev/null and b/static/assets/chacra-peruana.jpg differ
+diff --git a/static/css/login.css b/static/css/login.css
+index 376e07f..5cff5a1 100644
+--- a/static/css/login.css
++++ b/static/css/login.css
+@@ -21,16 +21,25 @@ body {
+   align-items: center;
+   justify-content: center;
+   padding: 1.5rem;
++  background-image: url('../assets/chacra-peruana.jpg');
++  background-size: cover;
++  background-position: center;
++  background-attachment: fixed;
++  position: relative;
+ }
+ 
+ body::before {
+   content: '';
+   position: fixed;
+   inset: 0;
+-  background-image:
+-    radial-gradient(circle at 20% 50%, rgba(82,183,136,0.08) 0%, transparent 50%),
+-    radial-gradient(circle at 80% 20%, rgba(27,67,50,0.06) 0%, transparent 40%);
++  background: rgba(0, 0, 0, 0.45);
+   pointer-events: none;
++  z-index: 0;
++}
++
++.wrapper {
++  position: relative;
++  z-index: 1;
+ }
+ 
+ /* ── Contenedor principal ──
+diff --git a/static/js/index.js b/static/js/index.js
+index 83190c0..6fb1a1f 100644
+--- a/static/js/index.js
++++ b/static/js/index.js
+@@ -121,7 +121,7 @@ function escaparHtml(text) {
+ 
+ // ── Inicialización de estado ─────────────────────────────────────
+ (function initState() {
+-  const seccionGuardada = localStorage.getItem('agroscan_seccion_actual');
++  const seccionGuardada = localStorage.getItem('frutia_seccion_actual');
+   if (seccionGuardada && seccionGuardada !== 'analizador') {
+     const link = document.querySelector(`.nav-link[data-section="${seccionGuardada}"]`);
+     if (link) {
+@@ -219,7 +219,7 @@ document.querySelectorAll('.nav-link').forEach(link => {
+   link.addEventListener('click', e => {
+     e.preventDefault();
+     const sec = link.dataset.section;
+-    localStorage.setItem('agroscan_seccion_actual', sec);
++    localStorage.setItem('frutia_seccion_actual', sec);
+     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+     document.querySelectorAll(`.nav-link[data-section="${sec}"]`).forEach(l => l.classList.add('active'));
+     document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
+@@ -646,7 +646,7 @@ function descargarPDF() {
+   // Usa el endpoint backend /reporte-pdf/<id> (WeasyPrint).
+   // El PDF se genera 100% en el servidor: no captura el DOM del navegador
+   // ni depende del tamaño de la ventana — el resultado es siempre idéntico.
+-  const nombreArchivo = `AgroScan_Reporte_${(data.cultivo || 'Cultivo').replace(/\s+/g, '_')}.pdf`;
++  const nombreArchivo = `FrutIA_Reporte_${(data.cultivo || 'Cultivo').replace(/\s+/g, '_')}.pdf`;
+ 
+   fetch(`/reporte-pdf/${data.analisis_id}`)
+     .then(async res => {
+diff --git a/templates/index.html b/templates/index.html
+index 81876ad..ae21c38 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -3,8 +3,8 @@
+ <head>
+   <meta charset="UTF-8"/>
+   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+-  <title>AgroScan — Analizador</title>
+-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}"/>
++  <title>FrutIA — Analizador</title>
++  <link rel="icon" type="image/x-icon" href="/static/logo-favicon/favicon-32x32.png">
+   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+   <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}"/>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+@@ -20,11 +20,11 @@
+            Si no existe, onerror oculta la imagen y muestra el emoji de
+            respaldo automáticamente — el diseño nunca se rompe. -->
+       <img src="{{ url_for('static', filename='assets/logo.png') }}"
+-           alt="Logo AgroScan"
++           alt="Logo FrutIA"
+            class="logo-img"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"/>
+       <span class="logo-icon" style="display:none;">🌱</span>
+-      <span class="logo-text">Agro<span>Scan</span></span>
++      <span class="logo-text">Frut<span>IA</span></span>
+     </div>
+ 
+     <!-- Escritorio: siempre visible, nunca colapsa a hamburguesa -->
+@@ -140,7 +140,7 @@
+             <h3>Imagen no compatible</h3>
+             <p>La imagen no corresponde a un cultivo o producto agrícola.</p>
+             <div class="invalido-lista">
+-              <p><strong>AgroScan solo analiza:</strong></p>
++              <p><strong>FrutIA solo analiza:</strong></p>
+               <ul><li>🍎 Frutas</li><li>🥦 Hortalizas</li><li>🌿 Plantas</li><li>🍃 Hojas</li><li>🌾 Cultivos agrícolas</li></ul>
+             </div>
+             <p class="invalido-accion">Por favor, sube una imagen válida.</p>
+@@ -196,7 +196,7 @@
+                 <span class="chat-header-icon">💬</span>
+                 <div>
+                   <h4 class="chat-titulo">¿Tienes dudas sobre este diagnóstico?</h4>
+-                  <p class="chat-subtitulo">Pregúntale al asistente agronómico de AgroScan</p>
++                  <p class="chat-subtitulo">Pregúntale al asistente agronómico de FrutIA</p>
+                 </div>
+               </div>
+               <div class="chat-mensajes" id="chat-mensajes"></div>
+@@ -323,15 +323,15 @@
+         <p>Visión de escalabilidad del proyecto</p>
+       </div>
+       <div class="futuro-descripcion">
+-        <p>AgroScan está diseñado para analizar imágenes independientemente de su origen. Actualmente utiliza fotografías tomadas desde un teléfono móvil, pero en futuras versiones podrá integrarse con drones, robots, cámaras inteligentes e imágenes satelitales para facilitar el monitoreo de grandes extensiones agrícolas.</p>
++        <p>FrutIA está diseñado para analizar imágenes independientemente de su origen. Actualmente utiliza fotografías tomadas desde un teléfono móvil, pero en futuras versiones podrá integrarse con drones, robots, cámaras inteligentes e imágenes satelitales para facilitar el monitoreo de grandes extensiones agrícolas.</p>
+       </div>
+       <div class="futuro-grid">
+-        <div class="futuro-card"><div class="futuro-icono">🚁</div><h3>Integración con drones</h3><ul><li>Captura automática en grandes extensiones agrícolas</li><li>Envío automático de fotografías a AgroScan</li></ul><div class="futuro-badge">En planificación</div></div>
++        <div class="futuro-card"><div class="futuro-icono">🚁</div><h3>Integración con drones</h3><ul><li>Captura automática en grandes extensiones agrícolas</li><li>Envío automático de fotografías a FrutIA</li></ul><div class="futuro-badge">En planificación</div></div>
+         <div class="futuro-card"><div class="futuro-icono">📷</div><h3>Cámaras inteligentes (IoT)</h3><ul><li>Monitoreo continuo de cultivos en tiempo real</li><li>Alertas automáticas al detectar enfermedades</li></ul><div class="futuro-badge">En planificación</div></div>
+         <div class="futuro-card"><div class="futuro-icono">🤖</div><h3>Robots agrícolas</h3><ul><li>Inspección autónoma de plantas</li><li>Captura y análisis en tiempo real</li></ul><div class="futuro-badge">En investigación</div></div>
+         <div class="futuro-card"><div class="futuro-icono">🛰️</div><h3>Imágenes satelitales</h3><ul><li>Detección temprana de anomalías en grandes áreas</li><li>Complementar el análisis individual</li></ul><div class="futuro-badge">En investigación</div></div>
+       </div>
+-      <div class="futuro-nota"><span>⚠️</span><p>AgroScan es un asistente de apoyo al diagnóstico y no reemplaza la evaluación de un ingeniero agrónomo certificado.</p></div>
++      <div class="futuro-nota"><span>⚠️</span><p>FrutIA es un asistente de apoyo al diagnóstico y no reemplaza la evaluación de un ingeniero agrónomo certificado.</p></div>
+     </section>
+ 
+     <!-- ══ ADMIN ══ -->
+diff --git a/templates/login.html b/templates/login.html
+index 2851fe7..6c34530 100644
+--- a/templates/login.html
++++ b/templates/login.html
+@@ -3,7 +3,7 @@
+ <head>
+   <meta charset="UTF-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+-  <title>AgroScan — Iniciar sesión</title>
++  <title>FrutIA — Iniciar sesión</title>
+   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+   <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}"/>
+   <link rel="icon" type="image/x-icon" href="/static/logo-favicon/favicon-32x32.png">
+@@ -20,11 +20,11 @@
+            imagen y muestra automáticamente el emoji de respaldo — el
+            diseño nunca se rompe, con o sin logo. -->
+       <img src="{{ url_for('static', filename='assets/logo.png') }}"
+-           alt="Logo AgroScan"
++           alt="Logo FrutIA"
+            class="logo-img"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+       <div class="logo-icon" style="display:none;">🌱</div>
+-      <span class="logo-text">Agro<span>Scan</span></span>
++      <span class="logo-text">Frut<span>IA</span></span>
+     </div>
+     <div class="panel-izq-contenido">
+       <h2>Diagnóstico <em>inteligente</em> para tus cultivos</h2>
+
+commit e13ad3c8c40dbc9f4761b9da994ae16e15b3dc66
+Author: Juancit015 <juandavidriverahuancas0@gmail.com>
+Date:   Thu Jul 9 23:51:48 2026 -0500
+
+    arreglos
+
+diff --git a/.gitignore b/.gitignore
+index 33f09dc..f17db62 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,3 +1,6 @@
++# Variables de entorno (contienen API keys)
++.env
++
+ # Base de datos local (se regenera sola al arrancar app.py)
+ agroscan.db
+ 

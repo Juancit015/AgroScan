@@ -15,6 +15,12 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 - **Rebranding global**: Se renombró la plataforma de **AgroScan** a **FrutIA**, actualizando logos, títulos, sistema de chat prompt, y PDF.
 - **Estilo marrón en "IA" del logo**: El fragmento "IA" del logo FrutIA hereda el color tierra (`#C8A96E`) que antes tenía "Scan", tanto en web como en reportes PDF.
 - **Emojis y negritas en chat**: Se actualizó el prompt del asistente para que sus respuestas incluyan emojis agrícolas (🌱🌿🍎 etc.) y palabras clave resaltadas con **negritas**. El frontend renderiza `**texto**` como `<strong>` y convierte viñetas `*` en `•`.
+- **Nav inferior móvil**: Se reemplazó el menú hamburguesa por una barra de navegación inferior fija con íconos (Historial, Dashboard, FAB central para analizar, Futuro, Perfil y Admin) — accesible con una mano, estilo app nativa.
+- **Dashboard horizontal en móvil**: Los grids del dashboard ahora usan scroll-snap horizontal, permitiendo deslizar entre charts.
+- **Skeleton loaders**: Animaciones de carga esqueleto en historial, admin y modales para feedback visual inmediato.
+- **Modales slide-up en móvil**: Los modales aparecen desde abajo en pantallas chicas, más natural en dispositivos táctiles.
+- **Sección Perfil**: Nueva página accesible desde el nav (escritorio y móvil) con foto, nombre, rol, región, localidad, fecha de registro y total de análisis. Permite editar nombre/región/localidad inline, cerrar sesión y eliminar la cuenta.
+- **Validación de nombre**: Al registrarse o crear/editar usuarios desde admin, el nombre debe contener al menos una letra (no solo números).
 
 ### Corregido
 - **Favicon faltante en panel principal**: `index.html` apuntaba a `favicon.ico` inexistente; se redirigió al mismo `.png` que usa `login.html`.

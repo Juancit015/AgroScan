@@ -174,6 +174,10 @@ if (regDni && regNombre && btnRegistrar) {
       mostrarErrorReg('El nombre debe tener al menos 3 caracteres');
       return;
     }
+    if (!/[a-zA-Záéíóúüñ]/.test(nombre)) {
+      mostrarErrorReg('El nombre debe contener al menos una letra');
+      return;
+    }
     if (dni.length !== 8) {
       mostrarErrorReg('La clave debe tener 8 dígitos');
       return;

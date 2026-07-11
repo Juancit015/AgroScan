@@ -46,6 +46,11 @@
   <!-- Panel derecho -->
   <div class="panel-der">
     <div id="vista-login">
+      <div class="logo-movil">
+        <img src="{{ url_for('static', filename='assets/logo.png') }}" alt="Logo FrutIA" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+        <div class="logo-icon" style="display:none; font-size:1.5rem; width:35px; height:35px;">🌱</div>
+        <span class="logo-text">Frut<span>IA</span></span>
+      </div>
       <h1>Bienvenido</h1>
       <p class="subtitulo">Ingresa tu clave para acceder al sistema</p>
 
@@ -83,7 +88,12 @@
 
     <!-- Panel de Registro -->
     <div id="vista-registro" style="display:none;">
-      <h1>Regístrate</h1>
+      <div class="logo-movil">
+        <img src="{{ url_for('static', filename='assets/logo.png') }}" alt="Logo FrutIA" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+        <div class="logo-icon" style="display:none; font-size:1.5rem; width:35px; height:35px;">🌱</div>
+        <span class="logo-text">Frut<span>IA</span></span>
+      </div>
+      <h1>Crear cuenta</h1>
       <p class="subtitulo">Crea tu cuenta de agricultor</p>
 
       <div class="campo">

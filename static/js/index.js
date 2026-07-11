@@ -123,11 +123,11 @@ function escaparHtml(text) {
 (function initState() {
   const seccionGuardada = localStorage.getItem('frutia_seccion_actual');
   if (seccionGuardada && seccionGuardada !== 'analizador') {
-    const link = document.querySelector(`.nav-link[data-section="${seccionGuardada}"]`);
+    const link = document.querySelector(`.nav-link[data-section="${seccionGuardada}"], .nav-link-movil[data-section="${seccionGuardada}"]`);
     if (link) {
       // Ajustamos el DOM directamente antes del primer renderizado para evitar parpadeos
-      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-      document.querySelectorAll(`.nav-link[data-section="${seccionGuardada}"]`).forEach(l => l.classList.add('active'));
+      document.querySelectorAll('.nav-link, .nav-link-movil').forEach(l => l.classList.remove('active'));
+      document.querySelectorAll(`.nav-link[data-section="${seccionGuardada}"], .nav-link-movil[data-section="${seccionGuardada}"]`).forEach(l => l.classList.add('active'));
       document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
       document.getElementById(`sec-${seccionGuardada}`).classList.add('activa');
       
@@ -135,6 +135,7 @@ function escaparHtml(text) {
       if (seccionGuardada === 'historial') cargarHistorial();
       if (seccionGuardada === 'dashboard') cargarDashboard();
       if (seccionGuardada === 'admin') cargarAdmin();
+      if (seccionGuardada === 'perfil') cargarPerfil();
     }
   }
 })();
@@ -195,17 +196,20 @@ const navToggle  = document.getElementById('nav-toggle');
 const navOverlay = document.getElementById('nav-overlay');
 
 function abrirMenuMovil() {
-  navToggle.classList.add('abierto');
+  if(navToggle) navToggle.classList.add('abierto');
   navOverlay.classList.add('visible');
 }
 function cerrarMenuMovil() {
-  navToggle.classList.remove('abierto');
+  if(navToggle) navToggle.classList.remove('abierto');
   navOverlay.classList.remove('visible');
 }
 
-navToggle.addEventListener('click', () => {
-  navOverlay.classList.contains('visible') ? cerrarMenuMovil() : abrirMenuMovil();
-});
+if(navToggle) {
+  navToggle.addEventListener('click', () => {
+    navOverlay.classList.contains('visible') ? cerrarMenuMovil() : abrirMenuMovil();
+  });
+}
+
 // Clic en el fondo oscuro (fuera del panel) cierra el menú; el panel en sí
 // detiene la propagación (ver onclick inline en el HTML) para que tocar
 // un link o el botón Salir no cierre el drawer antes de procesar la acción.
@@ -215,18 +219,20 @@ navOverlay.addEventListener('click', cerrarMenuMovil);
 // Selecciona los links de AMBAS barras (escritorio + drawer móvil), ya
 // que comparten la clase .nav-link; así el estado "activa" queda
 // sincronizado sin importar desde cuál se haya navegado.
-document.querySelectorAll('.nav-link').forEach(link => {
+document.querySelectorAll('.nav-link, .nav-link-movil[data-section]').forEach(link => {
   link.addEventListener('click', e => {
     e.preventDefault();
     const sec = link.dataset.section;
+    if(!sec) return;
     localStorage.setItem('frutia_seccion_actual', sec);
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-    document.querySelectorAll(`.nav-link[data-section="${sec}"]`).forEach(l => l.classList.add('active'));
+    document.querySelectorAll('.nav-link, .nav-link-movil').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll(`.nav-link[data-section="${sec}"], .nav-link-movil[data-section="${sec}"]`).forEach(l => l.classList.add('active'));
     document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
     document.getElementById(`sec-${sec}`).classList.add('activa');
     if (sec === 'historial') cargarHistorial();
     if (sec === 'dashboard') cargarDashboard();
     if (sec === 'admin') cargarAdmin();
+    if (sec === 'perfil') cargarPerfil();
     cerrarMenuMovil();
   });
 });
@@ -1077,7 +1083,15 @@ function observarScrollHistorial() {
 
 async function cargarHistorial() {
   const lista = document.getElementById('historial-lista');
-  lista.innerHTML = '<div class="cargando">Cargando historial...</div>';
+  const skeletonHTML = `
+    <div class="skeleton-card skeleton">
+      <div class="skeleton-img skeleton"></div>
+      <div class="skeleton-text skeleton"></div>
+      <div class="skeleton-text skeleton short"></div>
+      <div class="skeleton-text skeleton tall"></div>
+    </div>
+  `.repeat(4);
+  lista.innerHTML = skeletonHTML;
   try {
     const res  = await fetch('/historial');
     const data = await res.json();
@@ -1349,6 +1363,13 @@ async function cargarAdminStats() {
 
 async function cargarAdminUsuarios() {
   const lista = document.getElementById('admin-usuarios-lista');
+  const skeletonHTML = `
+    <div class="admin-usuario-row" style="background:#fff; border-color:transparent;">
+      <div class="skeleton-text skeleton" style="margin:0; width:40%;"></div>
+      <div class="skeleton-text skeleton short" style="margin-top:8px;"></div>
+    </div>
+  `.repeat(3);
+  lista.innerHTML = skeletonHTML;
   try {
     const res   = await fetch('/admin/usuarios');
     adminUsersCache = await res.json();
@@ -1432,7 +1453,14 @@ async function abrirDetallesUsuario(event, uid) {
   const modal = document.getElementById('modal-usuario');
   const cuerpo = document.getElementById('modal-cuerpo');
   modal.style.display = 'flex';
-  cuerpo.innerHTML = '<div class="cargando">Cargando detalles...</div>';
+  const skeletonHTML = `
+    <div style="padding:1rem;">
+      <div class="skeleton-text skeleton" style="width:60%; height:24px;"></div>
+      <div class="skeleton-text skeleton tall" style="width:100%; height:80px;"></div>
+      <div class="skeleton-text skeleton tall" style="width:100%; height:80px;"></div>
+    </div>
+  `;
+  cuerpo.innerHTML = skeletonHTML;
   
   try {
     const res = await fetch(`/admin/usuarios/${uid}/historial`);
@@ -1616,3 +1644,219 @@ async function cargarEstadoSistema() {
 }
 
 cargarEstadoSistema();
+
+// ── Perfil ────────────────────────────────────────────────────────
+const regionesDataPerfil = {
+  "La Libertad": ["Paiján", "Trujillo", "Chepén", "Pacasmayo", "Ascope"],
+  "Lima": ["Lima Central", "Cañete", "Huaral", "Barranca", "Huaura"],
+  "Piura": ["Piura", "Sullana", "Paita", "Talara", "Sechura"],
+  "Ica": ["Ica", "Chincha", "Pisco", "Nazca", "Palpa"],
+  "Cusco": ["Cusco", "Urubamba", "Quillabamba", "Sicuani", "Calca"],
+  "Arequipa": ["Arequipa", "Camaná", "Mollendo", "Chivay", "Caravelí"]
+};
+
+let perfilData = null;
+
+async function cargarPerfil() {
+  const cont = document.getElementById('perfil-contenido');
+  cont.innerHTML = '<div class="cargando">Cargando perfil...</div>';
+  try {
+    const res = await fetch('/perfil');
+    if (!res.ok) { cont.innerHTML = '<div class="cargando">Error al cargar perfil.</div>'; return; }
+    perfilData = await res.json();
+    renderPerfil(perfilData);
+  } catch { cont.innerHTML = '<div class="cargando">Error de conexión.</div>'; }
+}
+
+function renderPerfil(p) {
+  const inicial = (p.nombre || '?')[0].toUpperCase();
+  const avatarHtml = p.avatar_path
+    ? `<img src="/static/${p.avatar_path}?t=${Date.now()}" alt="Avatar">`
+    : `<span>${inicial}</span>`;
+
+  const fechaReg = p.fecha_registro
+    ? new Date(p.fecha_registro).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })
+    : '—';
+
+  const rolLabel = p.rol === 'admin' ? '⚙️ Administrador' : '🌱 Agricultor';
+
+  document.getElementById('perfil-contenido').innerHTML = `
+    <div class="perfil-card">
+      <div class="perfil-header">
+        <div class="perfil-avatar" id="perfil-avatar-click" title="Cambiar foto">
+          ${avatarHtml}
+          <div class="perfil-avatar-overlay">✎</div>
+        </div>
+        <div>
+          <div class="perfil-nombre" id="perfil-nombre-display">${escaparHtml(p.nombre)}</div>
+          <div class="perfil-meta">${rolLabel}</div>
+        </div>
+      </div>
+      <div class="perfil-grid">
+        <div class="perfil-campo">
+          <span class="perfil-label">Nombre</span>
+          <div class="perfil-valor" id="perfil-campo-nombre">
+            <span id="perfil-valor-nombre">${escaparHtml(p.nombre)}</span>
+            <button class="perfil-editar-btn" onclick="editarCampoPerfil('nombre')">✎ Editar</button>
+          </div>
+        </div>
+        <div class="perfil-campo">
+          <span class="perfil-label">Región</span>
+          <div class="perfil-valor" id="perfil-campo-region">
+            <span id="perfil-valor-region">${p.region || '—'}</span>
+            <button class="perfil-editar-btn" onclick="editarCampoPerfil('region')">✎ Editar</button>
+          </div>
+        </div>
+        <div class="perfil-campo">
+          <span class="perfil-label">Localidad</span>
+          <div class="perfil-valor" id="perfil-campo-localidad">
+            <span id="perfil-valor-localidad">${p.localidad || '—'}</span>
+            <button class="perfil-editar-btn" onclick="editarCampoPerfil('localidad')">✎ Editar</button>
+          </div>
+        </div>
+        <div class="perfil-campo">
+          <span class="perfil-label">Cuenta creada</span>
+          <div class="perfil-valor">${fechaReg}</div>
+        </div>
+        <div class="perfil-campo">
+          <span class="perfil-label">Análisis realizados</span>
+          <div class="perfil-valor">${p.total_analisis || 0}</div>
+        </div>
+      </div>
+      <p class="perfil-error" id="perfil-error"></p>
+      <div class="perfil-acciones">
+        <button class="btn-principal btn-sm" onclick="cerrarSesion()" style="flex:1;">🚪 Cerrar sesión</button>
+        <button class="perfil-btn-peligro" onclick="eliminarMiCuenta()" style="flex:1;">🗑️ Eliminar cuenta</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('perfil-avatar-click').addEventListener('click', () => {
+    document.getElementById('input-avatar').click();
+  });
+}
+
+function editarCampoPerfil(campo) {
+  const valorEl = document.getElementById(`perfil-valor-${campo}`);
+  const contEl = document.getElementById(`perfil-campo-${campo}`);
+  const valorActual = perfilData[campo] || '';
+
+  if (campo === 'region') {
+    const select = document.createElement('select');
+    select.className = 'perfil-select';
+    select.id = `perfil-edit-${campo}`;
+    select.innerHTML = '<option value="">Selecciona...</option>';
+    for (const r in regionesDataPerfil) {
+      select.innerHTML += `<option value="${r}" ${r === valorActual ? 'selected' : ''}>${r}</option>`;
+    }
+    contEl.innerHTML = '';
+    contEl.appendChild(select);
+    select.focus();
+    select.addEventListener('change', () => {
+      const val = select.value;
+      if (val) {
+        perfilData.localidad = '';
+        document.getElementById('perfil-valor-localidad').textContent = '—';
+      }
+      guardarCampoPerfil(campo, val);
+    });
+    return;
+  }
+
+  if (campo === 'localidad') {
+    const region = perfilData.region;
+    if (!region || !regionesDataPerfil[region]) {
+      mostrarToast('warning', 'Primero selecciona una región');
+      return;
+    }
+    const select = document.createElement('select');
+    select.className = 'perfil-select';
+    select.id = `perfil-edit-${campo}`;
+    select.innerHTML = '<option value="">Selecciona...</option>';
+    regionesDataPerfil[region].forEach(l => {
+      select.innerHTML += `<option value="${l}" ${l === valorActual ? 'selected' : ''}>${l}</option>`;
+    });
+    contEl.innerHTML = '';
+    contEl.appendChild(select);
+    select.focus();
+    select.addEventListener('change', () => guardarCampoPerfil(campo, select.value));
+    return;
+  }
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'perfil-input';
+  input.id = `perfil-edit-${campo}`;
+  input.value = valorActual;
+  input.maxLength = 30;
+  contEl.innerHTML = '';
+  contEl.appendChild(input);
+  input.focus();
+  input.select();
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') guardarCampoPerfil(campo, input.value.trim());
+    if (e.key === 'Escape') cancelarEdicionPerfil();
+  });
+}
+
+async function guardarCampoPerfil(campo, valor) {
+  const payload = {};
+  payload[campo] = valor;
+  const errEl = document.getElementById('perfil-error');
+  errEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/perfil', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error;
+      errEl.style.display = 'block';
+      return;
+    }
+    perfilData[campo] = valor;
+    renderPerfil(perfilData);
+    if (campo === 'nombre') {
+      document.querySelectorAll('.usuario-nombre').forEach(el => {
+        el.childNodes[0].textContent = valor;
+      });
+    }
+    mostrarToast('success', 'Perfil actualizado');
+  } catch {
+    errEl.textContent = 'Error de conexión.';
+    errEl.style.display = 'block';
+  }
+}
+
+function cancelarEdicionPerfil() {
+  if (perfilData) renderPerfil(perfilData);
+}
+
+function eliminarMiCuenta() {
+  const modal = document.getElementById('modal-confirmacion');
+  const texto = document.getElementById('modal-confirmacion-texto');
+  const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
+  const btnCancelar = document.getElementById('btn-cancelar-eliminar');
+
+  texto.innerHTML = `¿Estás seguro de eliminar tu cuenta?<br><br>Se borrarán <strong>todos tus análisis</strong> de forma permanente. Esta acción no se puede deshacer.`;
+  modal.style.display = 'flex';
+
+  btnCancelar.onclick = () => { modal.style.display = 'none'; };
+  btnConfirmar.onclick = async () => {
+    modal.style.display = 'none';
+    try {
+      const res = await fetch('/perfil', { method: 'DELETE' });
+      if (res.ok) {
+        mostrarToast('success', 'Cuenta eliminada', 'Tu cuenta y datos han sido eliminados.');
+        setTimeout(() => { window.location.href = '/'; }, 1200);
+      } else {
+        const data = await res.json();
+        mostrarToast('error', 'Error', data.error);
+      }
+    } catch { mostrarToast('error', 'Error de conexión'); }
+  };
+}

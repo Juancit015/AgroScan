@@ -235,6 +235,9 @@ Todas las rutas devuelven JSON. Las que requieren sesión devuelven
 | GET    | `/historial`              | Sesión | Lista de análisis del usuario               |
 | GET    | `/estadisticas`           | Sesión | Datos para el dashboard personal            |
 | POST   | `/perfil/avatar`          | Sesión | `{avatar: file}` → actualiza foto de perfil |
+| GET    | `/perfil`                 | Sesión | Datos del perfil del usuario autenticado      |
+| PUT    | `/perfil`                 | Sesión | `{nombre, region, localidad}` → edita perfil  |
+| DELETE | `/perfil`                 | Sesión | Elimina la cuenta del usuario y sus análisis  |
 | POST   | `/chat`                   | Sesión | Pregunta de seguimiento con contexto del diagnóstico |
 | GET    | `/reporte-pdf/<id>`       | Sesión | Genera y descarga el reporte PDF de un análisis |
 | GET    | `/admin/usuarios`         | Admin  | Lista de todos los usuarios                 |

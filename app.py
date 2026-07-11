@@ -150,6 +150,8 @@ def registro():
         return jsonify({"error": "Todos los campos son requeridos"}), 400
     if len(nombre) < 3 or len(nombre) > 30:
         return jsonify({"error": "El nombre debe tener entre 3 y 30 caracteres"}), 400
+    if not _TIENE_LETRA.search(nombre):
+        return jsonify({"error": "El nombre debe contener al menos una letra"}), 400
     if len(clave) != 8 or not clave.isdigit():
         return jsonify({"error": "La clave debe tener exactamente 8 dígitos numéricos"}), 400
     if nombre_en_uso(nombre):
@@ -726,6 +728,65 @@ def reporte_pdf(analisis_id):
 
 
 
+# ── Perfil del usuario autenticado ───────────────────────────────
+# El usuario puede ver su perfil, editar nombre/región/localidad
+# y eliminar su propia cuenta.
+
+import re as _re
+
+_TIENE_LETRA = re.compile(r'[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]')
+
+@app.route("/perfil", methods=["GET"])
+def perfil_ver():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesión"}), 401
+    from database import obtener_perfil
+    perfil = obtener_perfil(session["usuario_id"])
+    if not perfil:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+    return jsonify(perfil)
+
+@app.route("/perfil", methods=["PUT"])
+def perfil_editar():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesión"}), 401
+    data = request.get_json() or {}
+    nombre = data.get("nombre")
+    region = data.get("region")
+    localidad = data.get("localidad")
+
+    if nombre is None and region is None and localidad is None:
+        return jsonify({"error": "Indica al menos un campo a actualizar"}), 400
+
+    if nombre is not None:
+        nombre = nombre.strip()
+        if not nombre:
+            return jsonify({"error": "El nombre no puede estar vacío"}), 400
+        if len(nombre) < 3 or len(nombre) > 30:
+            return jsonify({"error": "El nombre debe tener entre 3 y 30 caracteres"}), 400
+        if not _TIENE_LETRA.search(nombre):
+            return jsonify({"error": "El nombre debe contener al menos una letra"}), 400
+        if nombre_en_uso(nombre, excluir_id=session["usuario_id"]):
+            return jsonify({"error": "Ya existe otro usuario con ese nombre"}), 409
+
+    resultado = editar_usuario(session["usuario_id"], nombre=nombre, region=region, localidad=localidad)
+    if resultado["ok"]:
+        if nombre:
+            session["nombre"] = nombre
+        if localidad:
+            session["localidad"] = localidad
+        return jsonify({"mensaje": "Perfil actualizado correctamente"})
+    return jsonify({"error": resultado.get("error", "No se pudo actualizar")}), 409
+
+@app.route("/perfil", methods=["DELETE"])
+def perfil_eliminar():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesión"}), 401
+    eliminar_usuario(session["usuario_id"])
+    session.clear()
+    return jsonify({"mensaje": "Cuenta eliminada correctamente"})
+
+
 # ── Rutas Admin ───────────────────────────────────────────────────
 
 # El admin puede: ver la lista de usuarios con sus estadísticas, crear
@@ -763,6 +824,8 @@ def admin_agregar_usuario():
         return jsonify({"error": "Nombre y clave son requeridos"}), 400
     if len(nombre) > NOMBRE_MAX_LEN:
         return jsonify({"error": f"El nombre no puede superar {NOMBRE_MAX_LEN} caracteres"}), 400
+    if not _TIENE_LETRA.search(nombre):
+        return jsonify({"error": "El nombre debe contener al menos una letra"}), 400
     if len(clave) != 8 or not clave.isdigit():
         return jsonify({"error": "La clave debe tener exactamente 8 dígitos"}), 400
     if nombre_en_uso(nombre):
@@ -796,6 +859,8 @@ def admin_editar_usuario(uid):
             return jsonify({"error": "El nombre no puede estar vacío"}), 400
         if len(nombre) > NOMBRE_MAX_LEN:
             return jsonify({"error": f"El nombre no puede superar {NOMBRE_MAX_LEN} caracteres"}), 400
+        if not _TIENE_LETRA.search(nombre):
+            return jsonify({"error": "El nombre debe contener al menos una letra"}), 400
         if nombre_en_uso(nombre, excluir_id=uid):
             return jsonify({"error": "Ya existe otro usuario con ese nombre. Elige uno distinto."}), 409
 

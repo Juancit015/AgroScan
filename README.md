@@ -33,6 +33,9 @@ líder en exportación de espárrago).
 - 🔐 **Login y Registro de Usuarios** (Clave de 8 dígitos numérica, registro con datos de Región y Localidad)
 - ⚙️ **Panel de administración avanzado** — gestión de usuarios, buscador, filtros por región/localidad, vista de historial detallado por usuario, y estadísticas globales
 - 🔮 Sección de **futuras integraciones** (drones, IoT, robots, satélites)
+- 👤 **Perfil de usuario** con edición inline de nombre, región y localidad, foto de perfil, fecha de registro y eliminación de cuenta
+- 📱 **Navegación inferior móvil** con FAB central para acceso rápido desde una mano
+- 💀 **Skeleton loaders** para feedback visual durante carga de datos
 
 ---
 
@@ -124,7 +127,7 @@ El sistema usa una **clave numérica de 8 dígitos** por usuario. Los usuarios n
 
 ## 📌 Notas de diseño
 
-- La paleta de colores y tipografías (Syne + Inter) se mantienen consistentes
+- La paleta de colores y tipografías (Montserrat) se mantienen consistentes
   en todas las pantallas — ver variables CSS en la cabecera de cada archivo
   `.css`.
 - El PDF se genera en backend con `WeasyPrint`; los íconos del reporte se
