@@ -1,4 +1,4 @@
-Coloca aquí el logotipo oficial de AgroScan con el nombre exacto: logo.png
+Coloca aquí el logotipo oficial de FrutIA con el nombre exacto: logo.png
 
 Mientras este archivo no exista, la interfaz muestra automáticamente un
 emoji 🌱 de respaldo en su lugar (login y barra de navegación), sin que

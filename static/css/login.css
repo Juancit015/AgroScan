@@ -21,16 +21,25 @@ body {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  background-image: url('../assets/chacra-peruana.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
 }
 
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image:
-    radial-gradient(circle at 20% 50%, rgba(82,183,136,0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(27,67,50,0.06) 0%, transparent 40%);
+  background: rgba(0, 0, 0, 0.45);
   pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Contenedor principal ──

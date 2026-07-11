@@ -1,6 +1,6 @@
 # Changelog
 
-Todos los cambios relevantes de AgroScan se documentan en este archivo.
+Todos los cambios relevantes de FrutIA se documentan en este archivo.
 
 El formato sigue el espíritu de [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/):
 cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
@@ -76,7 +76,7 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 
 ### Escaneo y Diagnóstico
 - **Chat de Seguimiento Post-Diagnóstico**: Se incorporó un widget de chat conversacional directamente en el panel de resultados. El agricultor puede hacer preguntas libres sobre el cultivo recién analizado (clima, disponibilidad del tratamiento, plazo de cosecha, etc.) y la IA responde con el contexto exacto del diagnóstico. El historial del chat se reinicia con cada nuevo análisis. Nuevo endpoint `/chat`.
-- **Alertas Epidemiológicas Regionales**: Sistema de "inteligencia comunitaria". Al finalizar un escaneo, AgroScan verifica en milisegundos si en la misma Localidad del usuario se han reportado múltiples casos de la misma enfermedad en los últimos 7 días. De ser así, despliega una alerta visual preventiva.
+- **Alertas Epidemiológicas Regionales**: Sistema de "inteligencia comunitaria". Al finalizar un escaneo, FrutIA verifica en milisegundos si en la misma Localidad del usuario se han reportado múltiples casos de la misma enfermedad en los últimos 7 días. De ser así, despliega una alerta visual preventiva.
 - **Exportación a PDF**: Se incorporó la opción de "Exportar a PDF" el resultado de los análisis. Genera un reporte agronómico formal y maquetado (tamaño A4) ideal para impresión usando `html2pdf.js`.
 - **Fuentes de Búsqueda Confiables**: Se mejoró el prompt de la IA para evitar "alucinaciones" de enlaces caídos. Ahora el sistema extrae el título e institución y construye un acceso rápido y directo mediante *Google Search*.
 
@@ -243,7 +243,7 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 - Comentarios explicativos dentro de `analizar()` (el endpoint más complejo
   del backend) describiendo el flujo de validación → guardado de imagen →
   persistencia en BD.
-- `.gitignore` para evitar subir `.env`, `agroscan.db` y las imágenes de
+- `.gitignore` para evitar subir `.env`, `frutia.db` y las imágenes de
   `static/uploads/` a un repositorio.
 
 ### Corregido

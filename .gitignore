@@ -2,7 +2,7 @@
 .env
 
 # Base de datos local (se regenera sola al arrancar app.py)
-agroscan.db
+frutia.db
 
 # Imágenes analizadas por los usuarios
 static/uploads/*

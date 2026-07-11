@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AgroScan — Analizador</title>
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}"/>
+  <title>FrutIA — Analizador</title>
+  <link rel="icon" type="image/x-icon" href="/static/logo-favicon/favicon-32x32.png">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -20,11 +20,11 @@
            Si no existe, onerror oculta la imagen y muestra el emoji de
            respaldo automáticamente — el diseño nunca se rompe. -->
       <img src="{{ url_for('static', filename='assets/logo.png') }}"
-           alt="Logo AgroScan"
+           alt="Logo FrutIA"
            class="logo-img"
            onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"/>
       <span class="logo-icon" style="display:none;">🌱</span>
-      <span class="logo-text">Agro<span>Scan</span></span>
+      <span class="logo-text">Frut<span>IA</span></span>
     </div>
 
     <!-- Escritorio: siempre visible, nunca colapsa a hamburguesa -->
@@ -140,7 +140,7 @@
             <h3>Imagen no compatible</h3>
             <p>La imagen no corresponde a un cultivo o producto agrícola.</p>
             <div class="invalido-lista">
-              <p><strong>AgroScan solo analiza:</strong></p>
+              <p><strong>FrutIA solo analiza:</strong></p>
               <ul><li>🍎 Frutas</li><li>🥦 Hortalizas</li><li>🌿 Plantas</li><li>🍃 Hojas</li><li>🌾 Cultivos agrícolas</li></ul>
             </div>
             <p class="invalido-accion">Por favor, sube una imagen válida.</p>
@@ -196,7 +196,7 @@
                 <span class="chat-header-icon">💬</span>
                 <div>
                   <h4 class="chat-titulo">¿Tienes dudas sobre este diagnóstico?</h4>
-                  <p class="chat-subtitulo">Pregúntale al asistente agronómico de AgroScan</p>
+                  <p class="chat-subtitulo">Pregúntale al asistente agronómico de FrutIA</p>
                 </div>
               </div>
               <div class="chat-mensajes" id="chat-mensajes"></div>
@@ -323,15 +323,15 @@
         <p>Visión de escalabilidad del proyecto</p>
       </div>
       <div class="futuro-descripcion">
-        <p>AgroScan está diseñado para analizar imágenes independientemente de su origen. Actualmente utiliza fotografías tomadas desde un teléfono móvil, pero en futuras versiones podrá integrarse con drones, robots, cámaras inteligentes e imágenes satelitales para facilitar el monitoreo de grandes extensiones agrícolas.</p>
+        <p>FrutIA está diseñado para analizar imágenes independientemente de su origen. Actualmente utiliza fotografías tomadas desde un teléfono móvil, pero en futuras versiones podrá integrarse con drones, robots, cámaras inteligentes e imágenes satelitales para facilitar el monitoreo de grandes extensiones agrícolas.</p>
       </div>
       <div class="futuro-grid">
-        <div class="futuro-card"><div class="futuro-icono">🚁</div><h3>Integración con drones</h3><ul><li>Captura automática en grandes extensiones agrícolas</li><li>Envío automático de fotografías a AgroScan</li></ul><div class="futuro-badge">En planificación</div></div>
+        <div class="futuro-card"><div class="futuro-icono">🚁</div><h3>Integración con drones</h3><ul><li>Captura automática en grandes extensiones agrícolas</li><li>Envío automático de fotografías a FrutIA</li></ul><div class="futuro-badge">En planificación</div></div>
         <div class="futuro-card"><div class="futuro-icono">📷</div><h3>Cámaras inteligentes (IoT)</h3><ul><li>Monitoreo continuo de cultivos en tiempo real</li><li>Alertas automáticas al detectar enfermedades</li></ul><div class="futuro-badge">En planificación</div></div>
         <div class="futuro-card"><div class="futuro-icono">🤖</div><h3>Robots agrícolas</h3><ul><li>Inspección autónoma de plantas</li><li>Captura y análisis en tiempo real</li></ul><div class="futuro-badge">En investigación</div></div>
         <div class="futuro-card"><div class="futuro-icono">🛰️</div><h3>Imágenes satelitales</h3><ul><li>Detección temprana de anomalías en grandes áreas</li><li>Complementar el análisis individual</li></ul><div class="futuro-badge">En investigación</div></div>
       </div>
-      <div class="futuro-nota"><span>⚠️</span><p>AgroScan es un asistente de apoyo al diagnóstico y no reemplaza la evaluación de un ingeniero agrónomo certificado.</p></div>
+      <div class="futuro-nota"><span>⚠️</span><p>FrutIA es un asistente de apoyo al diagnóstico y no reemplaza la evaluación de un ingeniero agrónomo certificado.</p></div>
     </section>
 
     <!-- ══ ADMIN ══ -->

@@ -121,7 +121,7 @@ function escaparHtml(text) {
 
 // ── Inicialización de estado ─────────────────────────────────────
 (function initState() {
-  const seccionGuardada = localStorage.getItem('agroscan_seccion_actual');
+  const seccionGuardada = localStorage.getItem('frutia_seccion_actual');
   if (seccionGuardada && seccionGuardada !== 'analizador') {
     const link = document.querySelector(`.nav-link[data-section="${seccionGuardada}"]`);
     if (link) {
@@ -219,7 +219,7 @@ document.querySelectorAll('.nav-link').forEach(link => {
   link.addEventListener('click', e => {
     e.preventDefault();
     const sec = link.dataset.section;
-    localStorage.setItem('agroscan_seccion_actual', sec);
+    localStorage.setItem('frutia_seccion_actual', sec);
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
     document.querySelectorAll(`.nav-link[data-section="${sec}"]`).forEach(l => l.classList.add('active'));
     document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
@@ -646,7 +646,7 @@ function descargarPDF() {
   // Usa el endpoint backend /reporte-pdf/<id> (WeasyPrint).
   // El PDF se genera 100% en el servidor: no captura el DOM del navegador
   // ni depende del tamaño de la ventana — el resultado es siempre idéntico.
-  const nombreArchivo = `AgroScan_Reporte_${(data.cultivo || 'Cultivo').replace(/\s+/g, '_')}.pdf`;
+  const nombreArchivo = `FrutIA_Reporte_${(data.cultivo || 'Cultivo').replace(/\s+/g, '_')}.pdf`;
 
   fetch(`/reporte-pdf/${data.analisis_id}`)
     .then(async res => {

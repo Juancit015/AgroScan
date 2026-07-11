@@ -1,5 +1,5 @@
 """
-app.py — AgroScan backend (Flask)
+app.py — FrutIA backend (Flask)
 
 Punto de entrada de la aplicación. Expone:
   - Autenticación por clave de acceso (sesiones de Flask).
@@ -33,7 +33,7 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-app.secret_key = "agroscan_secret_2024"
+app.secret_key = "frutia_secret_2024"
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 inicializar_db()
@@ -337,7 +337,7 @@ def chat_diagnostico():
 
     enf_texto = ", ".join([e.get("nombre", "") for e in enfermedades]) if enfermedades else "ninguna"
 
-    system_prompt = f"""Eres el asistente agronómico de AgroScan, especializado en cultivos peruanos.
+    system_prompt = f"""Eres el asistente agronómico de FrutIA, especializado en cultivos peruanos.
 Acabas de analizar un cultivo y el agricultor tiene preguntas de seguimiento.
 
 CONTEXTO DEL DIAGNÓSTICO ACTUAL:
@@ -407,7 +407,7 @@ REPORTE_PDF_TEMPLATE = """
     size: A4;
     margin: 18mm 16mm 22mm 16mm;
     @bottom-center {
-      content: "Generado automáticamente por AgroScan  |  {{ fecha }} {{ hora }}";
+      content: "Generado automáticamente por FrutIA  |  {{ fecha }} {{ hora }}";
       font-size: 8px;
       color: #9CA3AF;
       font-family: Arial, sans-serif;
@@ -448,6 +448,7 @@ REPORTE_PDF_TEMPLATE = """
     font-size: 22px; font-weight: 800; color: #1B4332;
     vertical-align: middle; letter-spacing: -0.5px;
   }
+  .logo-texto .ia-marca { color: #C8A96E; }
   .logo-sub { font-size: 10px; color: #6B7280; margin-top: 2px; }
   .cab-fecha { text-align: right; vertical-align: middle; font-size: 10px; color: #9CA3AF; }
 
@@ -535,9 +536,9 @@ REPORTE_PDF_TEMPLATE = """
       <tr>
         <td class="logo-wrap">
           {% if logo_path %}
-            <img src="{{ logo_path }}" class="logo-img" alt="AgroScan">
+            <img src="{{ logo_path }}" class="logo-img" alt="FrutIA">
           {% endif %}
-          <span class="logo-texto"><img src="{{ emoji.sprout }}" class="emoji-img emoji-logo" alt="">AgroScan</span>
+          <span class="logo-texto"><img src="{{ emoji.sprout }}" class="emoji-img emoji-logo" alt="">Frut<span class="ia-marca">IA</span></span>
           <div class="logo-sub">Reporte de Diagnóstico Agronómico</div>
         </td>
         <td class="cab-fecha">{{ fecha }}<br>{{ hora }}</td>
@@ -709,7 +710,7 @@ def reporte_pdf(analisis_id):
         return jsonify({"error": f"Error al generar PDF: {str(e)}"}), 500
 
     nombre_cultivo = (analisis.get("cultivo") or "Cultivo").replace(" ", "_")
-    filename = f"AgroScan_Reporte_{nombre_cultivo}.pdf"
+    filename = f"FrutIA_Reporte_{nombre_cultivo}.pdf"
 
     return send_file(
         io.BytesIO(pdf_bytes),

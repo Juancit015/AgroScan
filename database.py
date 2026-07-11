@@ -1,7 +1,7 @@
 """
-database.py — Capa de acceso a datos de AgroScan (SQLite)
+database.py — Capa de acceso a datos de FrutIA (SQLite)
 
-Encapsula toda la interacción con agroscan.db. Ninguna otra parte del
+Encapsula toda la interacción con frutia.db. Ninguna otra parte del
 proyecto ejecuta SQL directamente: app.py solo llama a las funciones
 públicas definidas aquí (buscar_usuario_por_dni, guardar_analisis,
 obtener_historial, etc.).
@@ -20,7 +20,7 @@ ejemplo la primera vez que se ejecuta. Es seguro llamarla en cada arranque.
 import sqlite3, json
 from datetime import datetime, timedelta
 
-DB_PATH = "agroscan.db"
+DB_PATH = "frutia.db"
 
 
 def top5_y_otros(filas, clave_nombre="cultivo", clave_cantidad="cantidad"):

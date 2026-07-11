@@ -1,4 +1,4 @@
-# 🏗️ Arquitectura de AgroScan
+# 🏗️ Arquitectura de FrutIA
 
 Este documento explica cómo están organizadas las piezas del proyecto, el
 flujo de datos y el contrato de la API, pensado para que cualquier
@@ -100,7 +100,7 @@ cuadros vacíos cuando el servidor no tiene instalada una fuente emoji completa.
 
 ### 3.1 Motor
 
-SQLite, archivo único `agroscan.db` en la raíz del proyecto. No requiere
+SQLite, archivo único `frutia.db` en la raíz del proyecto. No requiere
 servidor de base de datos — ideal para una demo local o feria.
 
 ### 3.2 Esquema

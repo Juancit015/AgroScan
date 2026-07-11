@@ -1,7 +1,7 @@
-# 🌱 AgroScan
+# 🌱 FrutIA
 
 Diagnóstico inteligente de cultivos mediante visión artificial. Sube o captura
-una foto de un cultivo y AgroScan identifica la especie, evalúa su estado de
+una foto de un cultivo y FrutIA identifica la especie, evalúa su estado de
 madurez, detecta posibles enfermedades y recomienda un tratamiento — citando
 fuentes agronómicas confiables.
 
@@ -9,7 +9,7 @@ Proyecto desarrollado como herramienta de apoyo para la carrera de
 Agropecuaria, con foco en cultivos de **Paijan, La Libertad, Perú** (región
 líder en exportación de espárrago).
 
-> ⚠️ AgroScan es un asistente de apoyo al diagnóstico. No reemplaza la
+> ⚠️ FrutIA es un asistente de apoyo al diagnóstico. No reemplaza la
 > evaluación de un ingeniero agrónomo certificado.
 
 ---
@@ -52,11 +52,11 @@ líder en exportación de espárrago).
 ## 📁 Estructura del proyecto
 
 ```
-AgroScan/
+FrutIA/
 ├── app.py              # Rutas Flask, lógica de la API y llamada a Groq
 ├── database.py         # Acceso a SQLite (usuarios, análisis, estadísticas)
 ├── .env                # Variables de entorno (API key) — no se sube a git
-├── agroscan.db          # Base de datos SQLite (se crea sola al arrancar)
+├── frutia.db          # Base de datos SQLite (se crea sola al arrancar)
 ├── templates/
 │   ├── login.html       # Pantalla de inicio de sesión
 │   └── index.html       # App principal (analizador, historial, dashboard, admin)
@@ -107,7 +107,7 @@ python3 app.py
 
 Abre **http://127.0.0.1:5000** en el navegador.
 
-La base de datos (`agroscan.db`) y sus tablas se crean automáticamente la
+La base de datos (`frutia.db`) y sus tablas se crean automáticamente la
 primera vez que se ejecuta `app.py`, junto con 3 usuarios de ejemplo (ver
 `database.py → inicializar_db()`).
 
