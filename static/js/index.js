@@ -570,7 +570,11 @@ function chatAgregarBurbuja(texto, tipo) {
   const cont = document.getElementById('chat-mensajes');
   const div = document.createElement('div');
   div.className = `chat-burbuja chat-burbuja-${tipo}`;
-  div.textContent = texto;
+  let html = texto
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^\s*\* /gm, ' • ')
+    .replace(/\n/g, '<br>');
+  div.innerHTML = html;
   cont.appendChild(div);
   cont.scrollTop = cont.scrollHeight;
   return div;

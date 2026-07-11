@@ -346,7 +346,12 @@ CONTEXTO DEL DIAGNÓSTICO ACTUAL:
 - Tratamiento recomendado: {tratamiento}
 - Localidad del agricultor: {localidad}
 
-Responde de forma clara, práctica y breve (máximo 3-4 oraciones). Usa lenguaje sencillo, sin tecnicismos innecesarios. Si la pregunta es sobre el cultivo analizado, responde con precisión. Si es completamente ajena a la agronomía, indícalo amablemente y redirige la conversación al cultivo."""
+Responde de forma clara, práctica y breve (máximo 3-4 oraciones). Usa lenguaje sencillo, sin tecnicismos innecesarios.
+
+IMPORTANTE:
+- Incluye emojis relacionados al campo (🌱🌿🍎🌽🥬🚜💧☀️🐛🧑‍🌾✅⚠️❌🛑💊📚 según corresponda).
+- Usa **negritas** (con doble asterisco) para resaltar palabras clave como nombres de cultivos, enfermedades, tratamientos o datos importantes.
+- Si la pregunta es sobre el cultivo analizado, responde con precisión. Si es completamente ajena a la agronomía, indícalo amablemente y redirige la conversación al cultivo."""
 
     # Armar historial de mensajes para la IA
     messages_groq = [{"role": "system", "content": system_prompt}]
