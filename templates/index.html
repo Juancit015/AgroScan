@@ -448,6 +448,10 @@
       <div class="modal-contenido" style="max-width: 400px; text-align: center;">
         <h3 style="color: var(--error); margin-bottom: 1rem;">⚠️ Advertencia</h3>
         <p id="modal-confirmacion-texto" style="margin-bottom: 1.5rem;"></p>
+        <div id="modal-confirmacion-input-wrap" style="display:none; margin-bottom: 1.5rem; text-align:left;">
+          <p style="font-size: 0.82rem; color: var(--texto-suave); margin-bottom: 0.5rem;">Escribe <strong>ELIMINAR</strong> para confirmar</p>
+          <input type="text" id="modal-confirmacion-input" class="perfil-input" style="width:100%; text-align:center;" autocomplete="off" placeholder="ELIMINAR">
+        </div>
         <div style="display: flex; gap: 1rem; justify-content: center;">
           <button class="btn-secundario" id="btn-cancelar-eliminar">Cancelar</button>
           <button class="btn-principal" id="btn-confirmar-eliminar" style="background: var(--error);">Sí, eliminar</button>

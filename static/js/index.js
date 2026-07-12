@@ -850,11 +850,18 @@ function eliminarAnalisisUnico(id, nombre) {
   );
 }
 
+function resetModalConfirmacion() {
+  document.getElementById('modal-confirmacion-input-wrap').style.display = 'none';
+  const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
+  btnConfirmar.disabled = false;
+}
+
 function mostrarConfirmacionEliminar(titulo, descripcion, onConfirmar) {
   const modal = document.getElementById('modal-confirmacion');
   const texto = document.getElementById('modal-confirmacion-texto');
   const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
   const btnCancelar = document.getElementById('btn-cancelar-eliminar');
+  resetModalConfirmacion();
   texto.innerHTML = `<strong style="display:block;margin-bottom:0.5rem;">${titulo}</strong><span style="font-size:0.9rem;color:#64748b;">${descripcion}</span>`;
   modal.style.display = 'flex';
   btnCancelar.onclick = () => { modal.style.display = 'none'; };
@@ -1577,6 +1584,7 @@ function eliminarUsuario(uid, nombre) {
   const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
   const btnCancelar = document.getElementById('btn-cancelar-eliminar');
 
+  resetModalConfirmacion();
   texto.innerHTML = `¿Estás seguro de que deseas eliminar a <strong>${nombre}</strong>?<br><br>Se borrarán también todos sus análisis de forma permanente.`;
   modal.style.display = 'flex';
 
@@ -1675,58 +1683,83 @@ function renderPerfil(p) {
     : `<span>${inicial}</span>`;
 
   const fechaReg = p.fecha_registro
-    ? new Date(p.fecha_registro).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })
+    ? new Date(p.fecha_registro).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—';
 
-  const rolLabel = p.rol === 'admin' ? '⚙️ Administrador' : '🌱 Agricultor';
+  const esAdmin = p.rol === 'admin';
+  const rolLabel = esAdmin ? '⚙️ Administrador' : '🌱 Agricultor';
 
   document.getElementById('perfil-contenido').innerHTML = `
     <div class="perfil-card">
+      <div class="perfil-banner"></div>
       <div class="perfil-header">
         <div class="perfil-avatar" id="perfil-avatar-click" title="Cambiar foto">
           ${avatarHtml}
           <div class="perfil-avatar-overlay">✎</div>
         </div>
-        <div>
+        <div class="perfil-header-info">
           <div class="perfil-nombre" id="perfil-nombre-display">${escaparHtml(p.nombre)}</div>
-          <div class="perfil-meta">${rolLabel}</div>
+          <span class="perfil-rol-badge ${esAdmin ? 'es-admin' : ''}">${rolLabel}</span>
         </div>
       </div>
-      <div class="perfil-grid">
-        <div class="perfil-campo">
-          <span class="perfil-label">Nombre</span>
-          <div class="perfil-valor" id="perfil-campo-nombre">
-            <span id="perfil-valor-nombre">${escaparHtml(p.nombre)}</span>
-            <button class="perfil-editar-btn" onclick="editarCampoPerfil('nombre')">✎ Editar</button>
-          </div>
+
+      <div class="perfil-stats">
+        <div class="perfil-stat">
+          <div class="perfil-stat-valor">${p.total_analisis || 0}</div>
+          <div class="perfil-stat-label">Análisis</div>
         </div>
-        <div class="perfil-campo">
-          <span class="perfil-label">Región</span>
-          <div class="perfil-valor" id="perfil-campo-region">
-            <span id="perfil-valor-region">${p.region || '—'}</span>
-            <button class="perfil-editar-btn" onclick="editarCampoPerfil('region')">✎ Editar</button>
-          </div>
+        <div class="perfil-stat">
+          <div class="perfil-stat-valor">${fechaReg}</div>
+          <div class="perfil-stat-label">Miembro desde</div>
         </div>
-        <div class="perfil-campo">
-          <span class="perfil-label">Localidad</span>
-          <div class="perfil-valor" id="perfil-campo-localidad">
-            <span id="perfil-valor-localidad">${p.localidad || '—'}</span>
-            <button class="perfil-editar-btn" onclick="editarCampoPerfil('localidad')">✎ Editar</button>
-          </div>
-        </div>
-        <div class="perfil-campo">
-          <span class="perfil-label">Cuenta creada</span>
-          <div class="perfil-valor">${fechaReg}</div>
-        </div>
-        <div class="perfil-campo">
-          <span class="perfil-label">Análisis realizados</span>
-          <div class="perfil-valor">${p.total_analisis || 0}</div>
+        <div class="perfil-stat">
+          <div class="perfil-stat-valor">${p.localidad || p.region || '—'}</div>
+          <div class="perfil-stat-label">Ubicación</div>
         </div>
       </div>
+
+      <div class="perfil-section-title">Información personal</div>
+      <div class="perfil-lista">
+        <div class="perfil-item">
+          <span class="perfil-item-icono">👤</span>
+          <div class="perfil-item-body perfil-campo">
+            <span class="perfil-label">Nombre</span>
+            <div class="perfil-valor" id="perfil-campo-nombre">
+              <span id="perfil-valor-nombre">${escaparHtml(p.nombre)}</span>
+              <button class="perfil-editar-btn" onclick="editarCampoPerfil('nombre')">Editar</button>
+            </div>
+          </div>
+        </div>
+        <div class="perfil-item">
+          <span class="perfil-item-icono">📍</span>
+          <div class="perfil-item-body perfil-campo">
+            <span class="perfil-label">Región</span>
+            <div class="perfil-valor" id="perfil-campo-region">
+              <span id="perfil-valor-region">${p.region || '—'}</span>
+              <button class="perfil-editar-btn" onclick="editarCampoPerfil('region')">Editar</button>
+            </div>
+          </div>
+        </div>
+        <div class="perfil-item">
+          <span class="perfil-item-icono">🏘️</span>
+          <div class="perfil-item-body perfil-campo">
+            <span class="perfil-label">Localidad</span>
+            <div class="perfil-valor" id="perfil-campo-localidad">
+              <span id="perfil-valor-localidad">${p.localidad || '—'}</span>
+              <button class="perfil-editar-btn" onclick="editarCampoPerfil('localidad')">Editar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <p class="perfil-error" id="perfil-error"></p>
-      <div class="perfil-acciones">
-        <button class="btn-principal btn-sm" onclick="cerrarSesion()" style="flex:1;">🚪 Cerrar sesión</button>
-        <button class="perfil-btn-peligro" onclick="eliminarMiCuenta()" style="flex:1;">🗑️ Eliminar cuenta</button>
+
+      <div class="perfil-zona-peligro">
+        <div class="perfil-zona-peligro-label">Zona de peligro</div>
+        <div class="perfil-acciones">
+          <button class="btn-principal btn-sm" onclick="cerrarSesion()" style="flex:1;">🚪 Cerrar sesión</button>
+          <button class="perfil-btn-peligro" onclick="eliminarMiCuenta()" style="flex:1;">🗑️ Eliminar cuenta</button>
+        </div>
       </div>
     </div>
   `;
@@ -1737,29 +1770,34 @@ function renderPerfil(p) {
 }
 
 function editarCampoPerfil(campo) {
-  const valorEl = document.getElementById(`perfil-valor-${campo}`);
   const contEl = document.getElementById(`perfil-campo-${campo}`);
   const valorActual = perfilData[campo] || '';
 
+  const acciones = () => `
+    <div class="perfil-edit-acciones">
+      <button type="button" class="perfil-btn-guardar" id="perfil-btn-guardar-${campo}" title="Guardar">✓</button>
+      <button type="button" class="perfil-btn-cancelar" id="perfil-btn-cancelar-${campo}" title="Cancelar">✕</button>
+    </div>`;
+
   if (campo === 'region') {
-    const select = document.createElement('select');
-    select.className = 'perfil-select';
-    select.id = `perfil-edit-${campo}`;
-    select.innerHTML = '<option value="">Selecciona...</option>';
-    for (const r in regionesDataPerfil) {
-      select.innerHTML += `<option value="${r}" ${r === valorActual ? 'selected' : ''}>${r}</option>`;
-    }
+    const wrap = document.createElement('div');
+    wrap.className = 'perfil-edit-row';
+    wrap.innerHTML = `<select class="perfil-select" id="perfil-edit-${campo}"><option value="">Selecciona...</option>${
+      Object.keys(regionesDataPerfil).map(r => `<option value="${r}" ${r === valorActual ? 'selected' : ''}>${r}</option>`).join('')
+    }</select>${acciones()}`;
     contEl.innerHTML = '';
-    contEl.appendChild(select);
+    contEl.appendChild(wrap);
+    const select = document.getElementById(`perfil-edit-${campo}`);
     select.focus();
-    select.addEventListener('change', () => {
+
+    document.getElementById(`perfil-btn-guardar-${campo}`).addEventListener('click', () => {
       const val = select.value;
-      if (val) {
+      if (val && val !== perfilData.region) {
         perfilData.localidad = '';
-        document.getElementById('perfil-valor-localidad').textContent = '—';
       }
       guardarCampoPerfil(campo, val);
     });
+    document.getElementById(`perfil-btn-cancelar-${campo}`).addEventListener('click', cancelarEdicionPerfil);
     return;
   }
 
@@ -1769,30 +1807,33 @@ function editarCampoPerfil(campo) {
       mostrarToast('warning', 'Primero selecciona una región');
       return;
     }
-    const select = document.createElement('select');
-    select.className = 'perfil-select';
-    select.id = `perfil-edit-${campo}`;
-    select.innerHTML = '<option value="">Selecciona...</option>';
-    regionesDataPerfil[region].forEach(l => {
-      select.innerHTML += `<option value="${l}" ${l === valorActual ? 'selected' : ''}>${l}</option>`;
-    });
+    const wrap = document.createElement('div');
+    wrap.className = 'perfil-edit-row';
+    wrap.innerHTML = `<select class="perfil-select" id="perfil-edit-${campo}"><option value="">Selecciona...</option>${
+      regionesDataPerfil[region].map(l => `<option value="${l}" ${l === valorActual ? 'selected' : ''}>${l}</option>`).join('')
+    }</select>${acciones()}`;
     contEl.innerHTML = '';
-    contEl.appendChild(select);
+    contEl.appendChild(wrap);
+    const select = document.getElementById(`perfil-edit-${campo}`);
     select.focus();
-    select.addEventListener('change', () => guardarCampoPerfil(campo, select.value));
+
+    document.getElementById(`perfil-btn-guardar-${campo}`).addEventListener('click', () => guardarCampoPerfil(campo, select.value));
+    document.getElementById(`perfil-btn-cancelar-${campo}`).addEventListener('click', cancelarEdicionPerfil);
     return;
   }
 
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'perfil-input';
-  input.id = `perfil-edit-${campo}`;
-  input.value = valorActual;
-  input.maxLength = 30;
+  const wrap = document.createElement('div');
+  wrap.className = 'perfil-edit-row';
+  wrap.innerHTML = `<input type="text" class="perfil-input" id="perfil-edit-${campo}" maxlength="30">${acciones()}`;
   contEl.innerHTML = '';
-  contEl.appendChild(input);
+  contEl.appendChild(wrap);
+  const input = document.getElementById(`perfil-edit-${campo}`);
+  input.value = valorActual;
   input.focus();
   input.select();
+
+  document.getElementById(`perfil-btn-guardar-${campo}`).addEventListener('click', () => guardarCampoPerfil(campo, input.value.trim()));
+  document.getElementById(`perfil-btn-cancelar-${campo}`).addEventListener('click', cancelarEdicionPerfil);
 
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') guardarCampoPerfil(campo, input.value.trim());
@@ -1841,13 +1882,25 @@ function eliminarMiCuenta() {
   const texto = document.getElementById('modal-confirmacion-texto');
   const btnConfirmar = document.getElementById('btn-confirmar-eliminar');
   const btnCancelar = document.getElementById('btn-cancelar-eliminar');
+  const inputWrap = document.getElementById('modal-confirmacion-input-wrap');
+  const input = document.getElementById('modal-confirmacion-input');
 
   texto.innerHTML = `¿Estás seguro de eliminar tu cuenta?<br><br>Se borrarán <strong>todos tus análisis</strong> de forma permanente. Esta acción no se puede deshacer.`;
+  inputWrap.style.display = 'block';
+  input.value = '';
+  btnConfirmar.disabled = true;
   modal.style.display = 'flex';
+  setTimeout(() => input.focus(), 50);
 
-  btnCancelar.onclick = () => { modal.style.display = 'none'; };
+  input.oninput = () => {
+    btnConfirmar.disabled = input.value.trim().toUpperCase() !== 'ELIMINAR';
+  };
+
+  btnCancelar.onclick = () => { modal.style.display = 'none'; resetModalConfirmacion(); };
   btnConfirmar.onclick = async () => {
+    if (input.value.trim().toUpperCase() !== 'ELIMINAR') return;
     modal.style.display = 'none';
+    resetModalConfirmacion();
     try {
       const res = await fetch('/perfil', { method: 'DELETE' });
       if (res.ok) {
