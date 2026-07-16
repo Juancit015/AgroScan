@@ -47,7 +47,7 @@ líder en exportación de espárrago).
 | Base de datos  | SQLite (archivo único, sin servidor)          |
 | IA / Visión    | Groq API — `meta-llama/llama-4-scout-17b-16e-instruct` |
 | Frontend       | HTML + CSS + JavaScript (vanilla)             |
-| Gráficas       | Chart.js                                      |
+| Gráficas       | Chart.js 4.4.1 (vendorizado en `static/js/vendor/chart.umd.min.js`) |
 | Sesiones       | Flask session (cookie firmada)                |
 
 ---
@@ -91,8 +91,10 @@ comunican estas piezas, el modelo de datos y el contrato de la API.
 ### 2. Instalar dependencias
 
 ```bash
-pip install flask flask-cors python-dotenv groq weasyprint --break-system-packages
+pip install -r requirements.txt
 ```
+
+### 3. Configurar variables de entorno
 
 ### 3. Configurar variables de entorno
 

@@ -1,0 +1,18 @@
+# Dependencias de FrutIA (backend Flask)
+Flask>=3.0
+flask-cors>=4.0
+python-dotenv>=1.0
+groq>=0.4
+weasyprint>=60.0
+
+# Nota: weasyprint require bibliotecas del sistema (cairo, pango,
+# gdk-pixbuf, libffi). En Debian/Ubuntu:
+#   sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev libcairo2
+#
+# Variables de entorno (ver .env.example o crea un .env):
+#   GROQ_API_KEY=tu_clave_de_groq   -> requerida para el análisis con IA
+#   FLASK_SECRET_KEY=clave_para_sesiones (opcional, se genera una por defecto)
+#
+# Frontend: Chart.js 4.4.1 está vendorizado en static/js/vendor/chart.umd.min.js
+# (no requiere CDN ni conexión a internet). La fuente Montserrat se
+# carga vía Google Fonts CDN con fallback a fuentes del sistema.

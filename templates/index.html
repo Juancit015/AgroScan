@@ -7,7 +7,7 @@
   <link rel="icon" type="image/x-icon" href="/static/logo-favicon/favicon-32x32.png">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='js/vendor/chart.umd.min.js') }}"></script>
 </head>
 <body>
 
@@ -29,27 +29,26 @@
 
     <!-- Escritorio: siempre visible, nunca colapsa a hamburguesa -->
     <div class="nav-links-desktop" id="nav-links-desktop">
-      <a href="#" class="nav-link active" data-section="analizador">📷 Analizar</a>
-      <a href="#" class="nav-link" data-section="historial">📋 Historial</a>
-      <a href="#" class="nav-link" data-section="dashboard">📊 Dashboard</a>
-      <a href="#" class="nav-link" data-section="futuro">🔮 Futuro</a>
-      <a href="#" class="nav-link" data-section="perfil">👤 Perfil</a>
-      {% if rol == "admin" %}<a href="#" class="nav-link nav-admin" data-section="admin">⚙️ Admin</a>{% endif %}
+      <a href="#" class="nav-link active" data-section="analizador" data-i18n="nav_analizar">📷 Analizar</a>
+      <a href="#" class="nav-link" data-section="historial" data-i18n="historial_titulo">📋 Historial</a>
+      <a href="#" class="nav-link" data-section="dashboard" data-i18n="dashboard_titulo">📊 Dashboard</a>
+      <a href="#" class="nav-link" data-section="perfil" data-i18n="perfil_titulo">👤 Perfil</a>
+      {% if rol == "admin" %}<a href="#" class="nav-link nav-admin" data-section="admin" data-i18n="admin_titulo">⚙️ Admin</a>{% endif %}
     </div>
 
     <div class="nav-usuario">
-      <button class="avatar-btn" id="avatar-btn-desktop" type="button" title="Cambiar foto de perfil">
+      <button class="avatar-btn" id="avatar-btn-desktop" type="button" title="Cambiar foto de perfil" data-i18n-title="nav_avatar_title">
         {% if avatar %}
-          <img src="{{ url_for('static', filename=avatar) }}" alt="Foto de perfil" class="avatar-img"/>
+          <img src="{{ url_for('static', filename=avatar) }}" alt="Foto de perfil" data-i18n-alt="nav_avatar_alt" class="avatar-img"/>
         {% else %}
           <span class="avatar-iniciales">{{ usuario[0]|upper }}</span>
         {% endif %}
         <span class="avatar-editar">✎</span>
       </button>
-      <span class="usuario-nombre">{{ usuario }}{% if rol == "admin" %} <span class="admin-badge">Admin</span>{% endif %}</span>
+      <span class="usuario-nombre">{{ usuario }}{% if rol == "admin" %} <span class="admin-badge" data-i18n="admin_badge">Admin</span>{% endif %}</span>
       <button class="btn-logout" id="btn-logout">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        <span>Salir</span>
+        <span data-i18n="nav_salir">Salir</span>
       </button>
     </div>
 
@@ -62,27 +61,28 @@
   <nav class="nav-bottom-mobile" id="nav-bottom-mobile">
     <a href="#" class="nav-link-movil active" data-section="historial">
       <div class="nav-movil-icon">📋</div>
-      <span>Historial</span>
+      <span data-i18n="bottom_historial">Historial</span>
     </a>
     <a href="#" class="nav-link-movil" data-section="dashboard">
       <div class="nav-movil-icon">📊</div>
-      <span>Dashboard</span>
+      <span data-i18n="bottom_dashboard">Dashboard</span>
     </a>
-    <a href="#" class="nav-link-movil nav-movil-fab" data-section="analizador">
-      <div class="fab-inner">📷</div>
+    <a href="#" class="nav-link-movil nav-movil-camara" data-section="analizador">
+      <div class="nav-movil-icon">📷</div>
+      <span data-i18n="bottom_analizar">Analizar</span>
     </a>
     <a href="#" class="nav-link-movil" data-section="futuro">
       <div class="nav-movil-icon">🔮</div>
-      <span>Futuro</span>
+      <span data-i18n="bottom_futuro">Futuro</span>
     </a>
     <a href="#" class="nav-link-movil" data-section="perfil">
       <div class="nav-movil-icon">👤</div>
-      <span>Perfil</span>
+      <span data-i18n="bottom_perfil">Perfil</span>
     </a>
     {% if rol == "admin" %}
     <a href="#" class="nav-link-movil" data-section="admin">
       <div class="nav-movil-icon">⚙️</div>
-      <span>Admin</span>
+      <span data-i18n="bottom_admin">Admin</span>
     </a>
     {% endif %}
   </nav>
@@ -98,26 +98,26 @@
           <span class="logo-text">Frut<span>IA</span></span>
         </div>
         <div class="nav-links-movil-secciones">
-          <a href="#" class="nav-link active" data-section="analizador">📷 Analizar</a>
-          <a href="#" class="nav-link" data-section="historial">📋 Historial</a>
-          <a href="#" class="nav-link" data-section="dashboard">📊 Dashboard</a>
-          <a href="#" class="nav-link" data-section="futuro">🔮 Futuro</a>
-          <a href="#" class="nav-link" data-section="perfil">👤 Perfil</a>
-          {% if rol == "admin" %}<a href="#" class="nav-link nav-admin" data-section="admin">⚙️ Admin</a>{% endif %}
+          <a href="#" class="nav-link active" data-section="analizador" data-i18n="drawer_analizar">📷 Analizar</a>
+          <a href="#" class="nav-link" data-section="historial" data-i18n="drawer_historial">📋 Historial</a>
+          <a href="#" class="nav-link" data-section="dashboard" data-i18n="drawer_dashboard">📊 Dashboard</a>
+          <a href="#" class="nav-link" data-section="futuro" data-i18n="drawer_futuro">🔮 Futuro</a>
+          <a href="#" class="nav-link" data-section="perfil" data-i18n="drawer_perfil">👤 Perfil</a>
+          {% if rol == "admin" %}<a href="#" class="nav-link nav-admin" data-section="admin" data-i18n="drawer_admin">⚙️ Admin</a>{% endif %}
         </div>
       </div>
       <div class="nav-usuario-movil-info">
-        <button class="avatar-btn avatar-btn-movil" id="avatar-btn-movil" type="button" title="Cambiar foto de perfil">
+        <button class="avatar-btn avatar-btn-movil" id="avatar-btn-movil" type="button" title="Cambiar foto de perfil" data-i18n-title="nav_avatar_title">
           {% if avatar %}
-            <img src="{{ url_for('static', filename=avatar) }}" alt="Foto de perfil" class="avatar-img"/>
+            <img src="{{ url_for('static', filename=avatar) }}" alt="Foto de perfil" data-i18n-alt="nav_avatar_alt" class="avatar-img"/>
           {% else %}
             <span class="avatar-iniciales">{{ usuario[0]|upper }}</span>
           {% endif %}
         </button>
-        <span class="usuario-nombre">{{ usuario }}{% if rol == "admin" %} <span class="admin-badge">Admin</span>{% endif %}</span>
+        <span class="usuario-nombre">{{ usuario }}{% if rol == "admin" %} <span class="admin-badge" data-i18n="admin_badge">Admin</span>{% endif %}</span>
         <button class="btn-logout" id="btn-logout-movil">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          <span>Salir</span>
+          <span data-i18n="nav_salir">Salir</span>
         </button>
       </div>
     </div>
@@ -130,23 +130,23 @@
       <div class="analizador-grid">
         <div class="panel-camara">
           <div class="camara-header">
-            <h2>Captura de cultivo</h2>
-            <p>Enfoca bien el cultivo y toma la foto</p>
+            <h2 data-i18n="camara_titulo">Captura de cultivo</h2>
+            <p data-i18n="camara_desc">Enfoca bien el cultivo y toma la foto</p>
           </div>
           <div class="camara-wrap" id="camara-wrap">
             <img id="preview" style="display:none;" alt="Vista previa"/>
             <div id="zona-overlay" class="zona-overlay" style="display:none;">
-              <div class="zona-label">⚠️ Zona detectada</div>
+              <div class="zona-label" data-i18n="zona_detectada">⚠️ Zona detectada</div>
             </div>
-            <div class="camara-placeholder" id="placeholder"><span>📷</span><p>Cámara no iniciada</p></div>
+            <div class="camara-placeholder" id="placeholder"><span>📷</span><p data-i18n="camara_no_iniciada">Cámara no iniciada</p></div>
             <div class="analizando-overlay" id="overlay" style="display:none;">
               <div class="pulse-ring"></div>
-              <p>Analizando cultivo...</p>
+              <p data-i18n="analizando_cultivo">Analizando cultivo...</p>
             </div>
           </div>
           <div id="zona-descripcion" class="zona-descripcion" style="display:none;">
             <span>🔍</span><span id="zona-desc-texto"></span>
-            <small>Referencia visual aproximada — no reemplaza evaluación profesional</small>
+            <small data-i18n="referencia_visual">Referencia visual aproximada — no reemplaza evaluación profesional</small>
           </div>
 
           <!-- "Tomar foto" es un botón controlado por JS: en móvil abre la
@@ -154,31 +154,31 @@
                exista una webcam y, si no, avisa con un toast en vez de
                abrir un selector vacío o dejar que el navegador falle solo. -->
           <div class="camara-controles">
-            <button type="button" class="btn-principal btn-captura" id="btn-tomar-foto">📷 Tomar foto</button>
+            <button type="button" class="btn-principal btn-captura" id="btn-tomar-foto" data-i18n="btn_tomar_foto">📷 Tomar foto</button>
             <input type="file" id="input-camara" accept="image/*" capture="environment" style="display:none;"/>
 
-            <label for="input-galeria" class="btn-secundario btn-captura">🖼️ Galería</label>
+            <label for="input-galeria" class="btn-secundario btn-captura" data-i18n="btn_galeria">🖼️ Galería</label>
             <input type="file" id="input-galeria" accept="image/*" style="display:none;"/>
           </div>
 
-          <button class="btn-secundario" id="btn-reiniciar" style="display:none;">Nueva foto</button>
+          <button class="btn-secundario" id="btn-reiniciar" style="display:none;" data-i18n="nueva_foto">Nueva foto</button>
         </div>
 
         <div class="panel-resultado" id="panel-resultado">
           <div class="resultado-vacio" id="resultado-vacio">
             <div class="vacio-icon">🌿</div>
-            <h3>Listo para analizar</h3>
-            <p>Toma una foto del cultivo para obtener el diagnóstico con IA</p>
+            <h3 data-i18n="listo_analizar">Listo para analizar</h3>
+            <p data-i18n="tomar_foto_desc">Toma una foto del cultivo para obtener el diagnóstico con IA</p>
           </div>
           <div class="resultado-invalido" id="resultado-invalido" style="display:none;">
             <div class="invalido-icono">🚫</div>
-            <h3>Imagen no compatible</h3>
-            <p>La imagen no corresponde a un cultivo o producto agrícola.</p>
+            <h3 data-i18n="imagen_no_compatible">Imagen no compatible</h3>
+            <p data-i18n="imagen_no_compatible_desc">La imagen no corresponde a un cultivo o producto agrícola.</p>
             <div class="invalido-lista">
-              <p><strong>FrutIA solo analiza:</strong></p>
-              <ul><li>🍎 Frutas</li><li>🥦 Hortalizas</li><li>🌿 Plantas</li><li>🍃 Hojas</li><li>🌾 Cultivos agrícolas</li></ul>
+              <p data-i18n="frutia_analiza"><strong>FrutIA solo analiza:</strong></p>
+              <ul><li data-i18n="item_frutas">🍎 Frutas</li><li data-i18n="item_hortalizas">🥦 Hortalizas</li><li data-i18n="item_plantas">🌿 Plantas</li><li data-i18n="item_hojas">🍃 Hojas</li><li data-i18n="item_cultivos">🌾 Cultivos agrícolas</li></ul>
             </div>
-            <p class="invalido-accion">Por favor, sube una imagen válida.</p>
+            <p class="invalido-accion" data-i18n="subir_valida">Por favor, sube una imagen válida.</p>
           </div>
           <div class="resultado-contenido" id="resultado-contenido" style="display:none;">
             <div class="resultado-header">
@@ -190,7 +190,7 @@
             </div>
             <div class="confianza-wrap">
               <div class="confianza-label-row">
-                <span>Confianza del diagnóstico</span>
+                <span data-i18n="confianza_diagnostico">Confianza del diagnóstico</span>
                 <span class="confianza-pct" id="res-confianza-pct">0%</span>
               </div>
               <div class="confianza-track"><div class="confianza-fill" id="res-confianza-fill"></div></div>
@@ -199,30 +199,30 @@
             <div id="alertas-regionales-container" style="display:none; margin: 1rem 0;"></div>
             
             <div class="resultado-bloque" id="bloque-enfermedades" style="display:none;">
-              <h4>⚠️ Posibles enfermedades detectadas</h4>
+              <h4 data-i18n="enfermedades_detectadas">⚠️ Posibles enfermedades detectadas</h4>
               <div id="res-enfermedades"></div>
             </div>
-            <div class="resultado-sano" id="bloque-sano" style="display:none;">✅ Cultivo en buen estado — sin enfermedades detectadas</div>
+            <div class="resultado-sano" id="bloque-sano" style="display:none;" data-i18n="cultivo_sano_html">✅ Cultivo en buen estado — sin enfermedades detectadas</div>
             <div class="resultado-bloque" id="bloque-explicacion" style="display:none;">
-              <h4>🔬 ¿Por qué se obtuvo este diagnóstico?</h4>
+              <h4 data-i18n="porque_diagnostico">🔬 ¿Por qué se obtuvo este diagnóstico?</h4>
               <ul class="explicacion-lista" id="res-explicacion"></ul>
             </div>
             <div class="resultado-bloque">
-              <h4>💊 Tratamiento recomendado</h4>
+              <h4 data-i18n="tratamiento_recomendado">💊 Tratamiento recomendado</h4>
               <p id="res-tratamiento" class="texto-resultado">—</p>
             </div>
             <div class="resultado-bloque" id="bloque-recomendacion" style="display:none;">
-              <h4 style="color: #9333EA;">🍽️ Recomendación de Consumo</h4>
+              <h4 style="color: #9333EA;" data-i18n="recomendacion_consumo_label">🍽️ Recomendación de Consumo</h4>
                <p id="res-recomendacion" class="rec-consumo-box">—</p>
             </div>
-            <div class="advertencia-box"><span>⚠️</span><p id="res-advertencia">Este diagnóstico es orientativo.</p></div>
+            <div class="advertencia-box"><span>⚠️</span><p id="res-advertencia" data-i18n="res_advertencia_default">Este diagnóstico es orientativo.</p></div>
             <div class="resultado-bloque">
-              <h4>📚 Fuentes consultadas</h4>
+              <h4 data-i18n="fuentes_consultadas">📚 Fuentes consultadas</h4>
               <div id="res-fuentes"></div>
             </div>
             
             <div class="resultado-acciones" style="margin-top: 1rem; text-align: center;">
-              <button class="btn-secundario btn-pdf" id="btn-descargar-pdf" onclick="descargarPDF()">📄 Exportar PDF</button>
+              <button class="btn-secundario btn-pdf" id="btn-descargar-pdf" onclick="descargarPDF()" data-i18n="exportar_pdf">📄 Exportar PDF</button>
             </div>
 
             <!-- ── Chat de Seguimiento ── -->
@@ -230,8 +230,8 @@
               <div class="chat-header">
                 <span class="chat-header-icon">💬</span>
                 <div>
-                  <h4 class="chat-titulo">¿Tienes dudas sobre este diagnóstico?</h4>
-                  <p class="chat-subtitulo">Pregúntale al asistente agronómico de FrutIA</p>
+                  <h4 class="chat-titulo" data-i18n="chat_dudas">¿Tienes dudas sobre este diagnóstico?</h4>
+                  <p class="chat-subtitulo" data-i18n="chat_asistente">Pregúntale al asistente agronómico de FrutIA</p>
                 </div>
               </div>
               <div class="chat-mensajes" id="chat-mensajes"></div>
@@ -241,7 +241,7 @@
                   type="text" 
                   id="chat-input" 
                   class="chat-input" 
-                  placeholder="Ej: ¿Puedo aplicar el fungicida si va a llover hoy?" 
+                  placeholder="Ej: ¿Puedo aplicar el fungicida si va a llover hoy?" data-i18n="chat_placeholder_input" 
                   maxlength="300"
                   onkeydown="if(event.key==='Enter') enviarChatMensaje()"
                 />
@@ -254,8 +254,8 @@
 
           <div class="resultado-error" id="resultado-error" style="display:none;">
             <span>❌</span>
-            <p id="error-texto">Ocurrió un error al analizar.</p>
-            <button class="btn-secundario" onclick="reiniciar()">Intentar de nuevo</button>
+            <p id="error-texto" data-i18n="error_analizar">Ocurrió un error al analizar.</p>
+            <button class="btn-secundario" onclick="reiniciar()" data-i18n="intentar_de_nuevo">Intentar de nuevo</button>
           </div>
         </div>
       </div>
@@ -265,19 +265,19 @@
     <section id="sec-historial" class="seccion">
       <div class="seccion-header" style="display: flex; flex-direction: column; gap: 1rem;">
         <div>
-          <h2>Historial de análisis</h2>
-          <p>Todos tus diagnósticos guardados</p>
+          <h2 data-i18n="historial_titulo_seccion">📋 Historial de análisis</h2>
+          <p data-i18n="historial_desc">Todos tus diagnósticos guardados</p>
         </div>
         <div class="historial-toolbar" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <input type="text" id="historial-buscar" class="admin-input" placeholder="Buscar por cultivo o enfermedad..." style="flex: 1; min-width: 200px;" oninput="renderHistorial(true)"/>
+          <input type="text" id="historial-buscar" class="admin-input" data-i18n="historial_buscar" placeholder="Buscar por cultivo o enfermedad..." style="flex: 1; min-width: 200px;" oninput="renderHistorial(true)"/>
           
           <select id="historial-filtro-estado" class="admin-input" style="flex: 0 1 auto; min-width: 150px;" onchange="renderHistorial(true)">
-            <option value="">Todos los estados</option>
-            <option value="sanos">Solo Sanos</option>
-            <option value="enfermos">Con Enfermedades</option>
+            <option value="" data-i18n="filtro_todos">Todos</option>
+            <option value="sano" data-i18n="filtro_sano">Sano</option>
+            <option value="enfermo" data-i18n="filtro_enfermo">Con enfermedades</option>
           </select>
 
-          <button id="btn-seleccionar-historial" class="btn-secundario btn-sm" style="flex: 0 1 auto; padding: 0.5rem 0.8rem;" onclick="toggleModoSeleccion()" title="Seleccionar registros">
+          <button id="btn-seleccionar-historial" class="btn-secundario btn-sm" style="flex: 0 1 auto; padding: 0.5rem 0.8rem;" onclick="toggleModoSeleccion()" title="Seleccionar registros" data-i18n-title="seleccionar_registros">
             ☑️
           </button>
 
@@ -290,29 +290,29 @@
 
       <!-- Barra de acción al seleccionar -->
       <div id="historial-barra-accion" class="historial-barra-accion">
-        <span class="barra-info" id="barra-seleccion-texto">0 seleccionados</span>
+        <span class="barra-info" id="barra-seleccion-texto" data-i18n="seleccionados_cero">0 seleccionados</span>
         <div class="barra-acciones">
-          <button class="btn-barra-cancelar" onclick="cancelarSeleccion()">Cancelar</button>
-          <button class="btn-barra-eliminar" onclick="confirmarEliminarSeleccion()">🗑️ Eliminar seleccionados</button>
+          <button class="btn-barra-cancelar" onclick="cancelarSeleccion()" data-i18n="cancelar">Cancelar</button>
+          <button class="btn-barra-eliminar" onclick="confirmarEliminarSeleccion()" data-i18n="eliminar_seleccionados">🗑️ Eliminar seleccionados</button>
         </div>
       </div>
 
-      <div id="historial-lista" class="historial-grid"><div class="cargando">Cargando historial...</div></div>
+      <div id="historial-lista" class="historial-grid"><div class="cargando" data-i18n="cargando_historial">Cargando historial...</div></div>
       <div id="historial-cargar-mas-wrap" style="display:none;">
-        <button class="btn-cargar-mas" onclick="cargarMasHistorial()">Cargar más registros</button>
+        <button class="btn-cargar-mas" onclick="cargarMasHistorial()" data-i18n="cargar_mas">Cargar más registros</button>
       </div>
     </section>
 
     <!-- ══ DASHBOARD ══ -->
     <section id="sec-dashboard" class="seccion">
       <div class="seccion-header">
-        <h2>Dashboard</h2>
-        <p>Resumen visual de tus análisis</p>
+        <h2 data-i18n="dashboard_titulo">📊 Dashboard</h2>
+        <p data-i18n="dashboard_desc">Resumen visual de tus análisis</p>
       </div>
 
       <!-- Estado del sistema -->
       <div class="status-bar" id="status-bar">
-        <div class="status-item"><span class="status-dot online"></span><span id="st-status">Cargando...</span></div>
+        <div class="status-item"><span class="status-dot online"></span><span id="st-status" data-i18n="cargando">Cargando...</span></div>
         <div class="status-item">🤖 <span id="st-modelo">—</span></div>
         <div class="status-item">⚡ Última respuesta: <strong id="st-tiempo">—</strong></div>
         <div class="status-item">📊 Total análisis: <strong id="st-total">—</strong></div>
@@ -323,27 +323,27 @@
 
       <div class="dashboard-grid-2">
         <div class="chart-card">
-          <h3 class="chart-titulo">Estado de los cultivos</h3>
+          <h3 class="chart-titulo" data-i18n="chart_estado_cultivos">Estado de los cultivos</h3>
           <div class="chart-wrap"><canvas id="chart-estado"></canvas></div>
         </div>
         <div class="chart-card">
-          <h3 class="chart-titulo">Posibles enfermedades detectadas</h3>
+          <h3 class="chart-titulo" data-i18n="chart_enfermedades">Posibles enfermedades detectadas</h3>
           <div class="chart-wrap"><canvas id="chart-enfermedades"></canvas></div>
         </div>
       </div>
       <div class="dashboard-grid-2">
         <div class="chart-card">
-          <h3 class="chart-titulo">Cultivos analizados</h3>
+          <h3 class="chart-titulo" data-i18n="chart_cultivos">Cultivos analizados</h3>
           <div class="chart-wrap"><canvas id="chart-cultivos"></canvas></div>
           <p class="chart-nota" id="chart-cultivos-nota"></p>
         </div>
         <div class="chart-card">
-          <h3 class="chart-titulo">Actividad semanal</h3>
+          <h3 class="chart-titulo" data-i18n="chart_actividad">Actividad semanal</h3>
           <div class="chart-wrap"><canvas id="chart-actividad"></canvas></div>
         </div>
       </div>
       <div class="chart-card chart-full">
-        <h3 class="chart-titulo">Confianza promedio de diagnósticos</h3>
+        <h3 class="chart-titulo" data-i18n="chart_confianza">Confianza promedio de diagnósticos</h3>
         <div class="confianza-dashboard-wrap">
           <div class="confianza-track confianza-track-lg"><div class="confianza-fill" id="dash-confianza-fill"></div></div>
           <span class="confianza-pct confianza-pct-lg" id="dash-confianza-pct">—</span>
@@ -355,72 +355,72 @@
     <!-- ══ FUTURAS INTEGRACIONES ══ -->
     <section id="sec-futuro" class="seccion">
       <div class="seccion-header">
-        <h2>Futuras integraciones</h2>
-        <p>Visión de escalabilidad del proyecto</p>
+        <h2 data-i18n="futuro_titulo">Futuras integraciones</h2>
+        <p data-i18n="futuro_desc">Visión de escalabilidad del proyecto</p>
       </div>
       <div class="futuro-descripcion">
-        <p>FrutIA está diseñado para analizar imágenes independientemente de su origen. Actualmente utiliza fotografías tomadas desde un teléfono móvil, pero en futuras versiones podrá integrarse con drones, robots, cámaras inteligentes e imágenes satelitales para facilitar el monitoreo de grandes extensiones agrícolas.</p>
+        <p data-i18n="futuro_texto">FrutIA está diseñado para analizar imágenes independientemente de su origen. Actualmente utiliza fotografías tomadas desde un teléfono móvil, pero en futuras versiones podrá integrarse con drones, robots, cámaras inteligentes e imágenes satelitales para facilitar el monitoreo de grandes extensiones agrícolas.</p>
       </div>
       <div class="futuro-grid">
-        <div class="futuro-card"><div class="futuro-icono">🚁</div><h3>Integración con drones</h3><ul><li>Captura automática en grandes extensiones agrícolas</li><li>Envío automático de fotografías a FrutIA</li></ul><div class="futuro-badge">En planificación</div></div>
-        <div class="futuro-card"><div class="futuro-icono">📷</div><h3>Cámaras inteligentes (IoT)</h3><ul><li>Monitoreo continuo de cultivos en tiempo real</li><li>Alertas automáticas al detectar enfermedades</li></ul><div class="futuro-badge">En planificación</div></div>
-        <div class="futuro-card"><div class="futuro-icono">🤖</div><h3>Robots agrícolas</h3><ul><li>Inspección autónoma de plantas</li><li>Captura y análisis en tiempo real</li></ul><div class="futuro-badge">En investigación</div></div>
-        <div class="futuro-card"><div class="futuro-icono">🛰️</div><h3>Imágenes satelitales</h3><ul><li>Detección temprana de anomalías en grandes áreas</li><li>Complementar el análisis individual</li></ul><div class="futuro-badge">En investigación</div></div>
+        <div class="futuro-card"><div class="futuro-icono">🚁</div><h3 data-i18n="futuro_card1_titulo">Integración con drones</h3><ul><li data-i18n="futuro_card1_li1">Captura automática en grandes extensiones agrícolas</li><li data-i18n="futuro_card1_li2">Envío automático de fotografías a FrutIA</li></ul><div class="futuro-badge" data-i18n="futuro_planificacion">En planificación</div></div>
+        <div class="futuro-card"><div class="futuro-icono">📷</div><h3 data-i18n="futuro_card2_titulo">Cámaras inteligentes (IoT)</h3><ul><li data-i18n="futuro_card2_li1">Monitoreo continuo de cultivos en tiempo real</li><li data-i18n="futuro_card2_li2">Alertas automáticas al detectar enfermedades</li></ul><div class="futuro-badge" data-i18n="futuro_planificacion">En planificación</div></div>
+        <div class="futuro-card"><div class="futuro-icono">🤖</div><h3 data-i18n="futuro_card3_titulo">Robots agrícolas</h3><ul><li data-i18n="futuro_card3_li1">Inspección autónoma de plantas</li><li data-i18n="futuro_card3_li2">Captura y análisis en tiempo real</li></ul><div class="futuro-badge" data-i18n="futuro_investigacion">En investigación</div></div>
+        <div class="futuro-card"><div class="futuro-icono">🛰️</div><h3 data-i18n="futuro_card4_titulo">Imágenes satelitales</h3><ul><li data-i18n="futuro_card4_li1">Detección temprana de anomalías en grandes áreas</li><li data-i18n="futuro_card4_li2">Complementar el análisis individual</li></ul><div class="futuro-badge" data-i18n="futuro_investigacion">En investigación</div></div>
       </div>
-      <div class="futuro-nota"><span>⚠️</span><p>FrutIA es un asistente de apoyo al diagnóstico y no reemplaza la evaluación de un ingeniero agrónomo certificado.</p></div>
+      <div class="futuro-nota"><span>⚠️</span><p data-i18n="futuro_nota">FrutIA es un asistente de apoyo al diagnóstico y no reemplaza la evaluación de un ingeniero agrónomo certificado.</p></div>
     </section>
 
     <!-- ══ ADMIN ══ -->
     <section id="sec-admin" class="seccion">
       <div class="seccion-header">
-        <h2>Panel de administración</h2>
-        <p>Gestión de usuarios y estadísticas globales</p>
+        <h2 data-i18n="admin_panel">Panel de administración</h2>
+        <p data-i18n="admin_panel_desc">Gestión de usuarios y estadísticas globales</p>
       </div>
 
       <!-- Stats globales -->
       <div class="admin-stats-grid" id="admin-stats-grid">
-        <div class="cargando">Cargando...</div>
+        <div class="cargando" data-i18n="cargando">Cargando...</div>
       </div>
 
       <!-- Usuarios -->
       <div class="admin-panel">
         <div class="admin-panel-header">
-          <h3>Usuarios registrados</h3>
+          <h3 data-i18n="admin_usuarios_titulo">Usuarios registrados</h3>
           <div class="admin-header-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
-            <input type="text" id="admin-buscar" placeholder="Buscar por nombre..." class="admin-input" style="width: auto;"/>
+            <input type="text" id="admin-buscar" placeholder="Buscar por nombre..." class="admin-input" style="width: auto;" data-i18n="admin_buscar"/>
             <select id="admin-filtro-region" class="admin-input" style="width: auto;">
-               <option value="">Todas las regiones</option>
+               <option value="" data-i18n="admin_todas_regiones">Todas las regiones</option>
             </select>
             <select id="admin-filtro-localidad" class="admin-input" style="width: auto;" disabled>
                <option value="">Todas las localidades</option>
             </select>
-            <button class="btn-principal btn-sm" id="btn-nuevo-usuario">+ Nuevo usuario</button>
+            <button class="btn-principal btn-sm" id="btn-nuevo-usuario" data-i18n="admin_nuevo_usuario">+ Nuevo usuario</button>
           </div>
         </div>
 
         <!-- Formulario nuevo usuario (oculto) -->
         <div class="admin-form" id="admin-form" style="display:none;">
-          <input type="text"   id="form-nombre" placeholder="Nombre completo" maxlength="30" class="admin-input"/>
-          <input type="text"   id="form-clave"  placeholder="Clave (8 dígitos)" maxlength="8" inputmode="numeric" class="admin-input"/>
+          <input type="text"   id="form-nombre" placeholder="Nombre completo" maxlength="30" class="admin-input" data-i18n="admin_nombre_placeholder"/>
+          <input type="text"   id="form-clave"  placeholder="Clave (8 dígitos)" maxlength="8" inputmode="numeric" class="admin-input" data-i18n="admin_clave_placeholder_alt"/>
           <select id="form-region" class="admin-input">
-            <option value="">Región...</option>
+            <option value="" data-i18n="admin_region_placeholder">Región...</option>
           </select>
           <select id="form-localidad" class="admin-input" disabled>
-            <option value="">Localidad...</option>
+            <option value="" data-i18n="admin_localidad_placeholder">Localidad...</option>
           </select>
           <select id="form-rol" class="admin-input">
-            <option value="agricultor">Agricultor</option>
-            <option value="admin">Administrador</option>
+            <option value="agricultor" data-i18n="admin_rol_agricultor_lbl">Agricultor</option>
+            <option value="admin" data-i18n="admin_rol_admin_lbl">Administrador</option>
           </select>
           <div class="admin-form-btns">
-            <button class="btn-principal btn-sm" id="btn-guardar-usuario">Guardar</button>
-            <button class="btn-secundario btn-sm" id="btn-cancelar-usuario">Cancelar</button>
+            <button class="btn-principal btn-sm" id="btn-guardar-usuario" data-i18n="admin_guardar_btn">Guardar</button>
+            <button class="btn-secundario btn-sm" id="btn-cancelar-usuario" data-i18n="admin_cancelar_btn">Cancelar</button>
           </div>
           <p class="admin-form-error" id="admin-form-error" style="display:none;"></p>
         </div>
 
         <div id="admin-usuarios-lista" class="admin-usuarios-lista">
-          <div class="cargando">Cargando usuarios...</div>
+          <div class="cargando" data-i18n="cargando_usuarios">Cargando usuarios...</div>
         </div>
       </div>
     </section>
@@ -428,11 +428,11 @@
     <!-- ══ PERFIL ══ -->
     <section id="sec-perfil" class="seccion">
       <div class="seccion-header">
-        <h2>Mi Perfil</h2>
-        <p>Tus datos y configuración de cuenta</p>
+        <h2 data-i18n="perfil_titulo_seccion">Mi Perfil</h2>
+        <p data-i18n="perfil_desc">Tus datos y configuración de cuenta</p>
       </div>
       <div id="perfil-contenido" class="perfil-contenido">
-        <div class="cargando">Cargando perfil...</div>
+        <div class="cargando" data-i18n="perfil_cargando">Cargando perfil...</div>
       </div>
     </section>
 
@@ -442,7 +442,7 @@
         <button class="modal-cerrar" id="btn-cerrar-modal">&times;</button>
         <div id="modal-cuerpo">
            <!-- Content loaded via JS -->
-           <div class="cargando">Cargando detalles...</div>
+           <div class="cargando" data-i18n="cargando_detalles">Cargando detalles...</div>
         </div>
       </div>
     </div>
@@ -453,7 +453,7 @@
         <button onclick="cerrarModalHistorial()" style="position: absolute; top: 15px; right: 15px; background: #fee2e2; color: #dc2626; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 1.4rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height:1; transition: 0.2s; box-shadow: 0 2px 6px rgba(220,38,38,0.3);" onmouseover="this.style.background='#fecaca';this.style.transform='scale(1.1)'" onmouseout="this.style.background='#fee2e2';this.style.transform='scale(1)'">&times;</button>
         <div id="modal-historial-cuerpo">
            <!-- Content loaded via JS -->
-           <div class="cargando">Cargando análisis...</div>
+           <div class="cargando" data-i18n="cargando_analisis">Cargando análisis...</div>
         </div>
       </div>
     </div>
@@ -461,21 +461,22 @@
     <!-- Modal Confirmación Eliminar -->
     <div id="modal-confirmacion" class="modal-overlay" style="display:none;">
       <div class="modal-contenido" style="max-width: 400px; text-align: center;">
-        <h3 style="color: var(--error); margin-bottom: 1rem;">⚠️ Advertencia</h3>
+        <h3 style="color: var(--error); margin-bottom: 1rem;" data-i18n="advertencia_titulo">⚠️ Advertencia</h3>
         <p id="modal-confirmacion-texto" style="margin-bottom: 1.5rem;"></p>
         <div id="modal-confirmacion-input-wrap" style="display:none; margin-bottom: 1.5rem; text-align:left;">
-          <p style="font-size: 0.82rem; color: var(--texto-suave); margin-bottom: 0.5rem;">Escribe <strong>ELIMINAR</strong> para confirmar</p>
-          <input type="text" id="modal-confirmacion-input" class="perfil-input" style="width:100%; text-align:center;" autocomplete="off" placeholder="ELIMINAR">
+          <p style="font-size: 0.82rem; color: var(--texto-suave); margin-bottom: 0.5rem;" data-i18n="escribir_eliminar">Escribe <strong>ELIMINAR</strong> para confirmar</p>
+          <input type="text" id="modal-confirmacion-input" class="perfil-input" style="width:100%; text-align:center;" autocomplete="off" placeholder="ELIMINAR" data-i18n="eliminar_placeholder">
         </div>
         <div style="display: flex; gap: 1rem; justify-content: center;">
-          <button class="btn-secundario" id="btn-cancelar-eliminar">Cancelar</button>
-          <button class="btn-principal" id="btn-confirmar-eliminar" style="background: var(--error);">Sí, eliminar</button>
+          <button class="btn-secundario" id="btn-cancelar-eliminar" data-i18n="cancelar">Cancelar</button>
+          <button class="btn-principal" id="btn-confirmar-eliminar" style="background: var(--error);" data-i18n="si_eliminar">Sí, eliminar</button>
         </div>
       </div>
     </div>
 
   </main>
 
+  <script>window.idiomaGlobal = '{{ idioma }}';</script>
   <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
 </html>

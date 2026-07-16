@@ -26,6 +26,16 @@ const TRADUCCIONES = {
     registrando: 'Registrando...',
     btn_login_cargando: 'Verificando...',
     btn_login_normal: 'Ingresar al sistema',
+    login_dni_vacio: 'Ingresa tu número de DNI',
+    login_dni_corto: 'El DNI debe tener 8 dígitos',
+    login_error_conexion: 'Error de conexión. Verifica que el servidor esté corriendo.',
+    bienvenido_prefix: '¡Bienvenido',
+    registrando_exitoso: '¡Registro exitoso!',
+    reg_error_campos: 'Todos los campos son obligatorios',
+    reg_error_nombre_corto: 'El nombre debe tener al menos 3 caracteres',
+    reg_error_sin_letra: 'El nombre debe contener al menos una letra',
+    reg_error_clave: 'La clave debe tener 8 dígitos',
+    reg_error_generico: 'Error al registrar',
   },
   qu: {
     panel_titulo: 'Diagnóstico <em>yuyayniyuq</em> chakra yukunapaq',
@@ -53,14 +63,33 @@ const TRADUCCIONES = {
     registrando: 'Qillqakuchkan...',
     btn_login_cargando: 'Qhawaykun...',
     btn_login_normal: 'Sistema ukhuman yaykuy',
+    login_dni_vacio: 'DNI yupaykita qillqay',
+    login_dni_corto: 'DNI 8 qillqayuq kanan',
+    login_error_conexion: 'Pantasqa tinkiy. Servidor purichkantachu qhaway.',
+    bienvenido_prefix: '¡Allin hamuy',
+    registrando_exitoso: '¡Allin qillqakuy!',
+    reg_error_campos: 'Tukuy campokuna hunt\'anan',
+    reg_error_nombre_corto: 'Suti 3 qillqamanta aswan kanan',
+    reg_error_sin_letra: 'Suti huk letrayuq kanan',
+    reg_error_clave: 'Kichay 8 qillqayuq kanan',
+    reg_error_generico: 'Pantasqa qillqakuy',
   }
 };
 
-let idiomaActual = localStorage.getItem('frutia_idioma') || 'es';
+function obtenerIdiomaCookie() {
+  const m = document.cookie.match(/(?:^|;\s*)idioma=([^;]*)/);
+  return m ? decodeURIComponent(m[1]) : 'es';
+}
+
+function guardarIdiomaCookie(lang) {
+  document.cookie = `idioma=${lang};path=/;max-age=31536000;samesite=Lax`;
+}
+
+let idiomaActual = obtenerIdiomaCookie();
 
 function cambiarIdioma(lang) {
   idiomaActual = lang;
-  localStorage.setItem('frutia_idioma', lang);
+  guardarIdiomaCookie(lang);
 
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
@@ -74,8 +103,9 @@ function cambiarIdioma(lang) {
 }
 
 (function initIdioma() {
-  const langGuardado = localStorage.getItem('frutia_idioma') || 'es';
-  cambiarIdioma(langGuardado);
+  const lang = obtenerIdiomaCookie();
+  console.log('[FrutIA Login] initIdioma lang =', lang, 'cookie =', document.cookie);
+  cambiarIdioma(lang);
 })();
 
 // ── Referencias al DOM ──────────────────────────────────────────
@@ -105,13 +135,13 @@ async function iniciarSesion() {
   const dni = inputDni.value.trim();
 
   if (!dni) {
-    mostrarError('Ingresa tu número de DNI');
+    mostrarError(TRADUCCIONES[idiomaActual].login_dni_vacio);
     inputDni.focus();
     return;
   }
 
   if (dni.length < 8) {
-    mostrarError('El DNI debe tener 8 dígitos');
+    mostrarError(TRADUCCIONES[idiomaActual].login_dni_corto);
     inputDni.focus();
     return;
   }
@@ -131,18 +161,19 @@ async function iniciarSesion() {
 
     if (res.ok) {
       // Login exitoso
-      btnTexto.textContent = `¡Bienvenido, ${data.nombre}!`;
+      btnTexto.textContent = `${TRADUCCIONES[idiomaActual].bienvenido_prefix}, ${data.nombre}!`;
       spinner.style.display = 'none';
       btnLogin.style.background = '#2D6A4F';
+      guardarIdiomaCookie(idiomaActual);
       setTimeout(() => { window.location.href = '/'; }, 800);
     } else {
-      mostrarError(data.error || 'DNI no registrado en el sistema');
+      mostrarError(data.error || TRADUCCIONES[idiomaActual].login_error);
       setEstadoCargando(false);
       inputDni.focus();
     }
 
   } catch (err) {
-    mostrarError('Error de conexión. Verifica que el servidor esté corriendo.');
+    mostrarError(TRADUCCIONES[idiomaActual].login_error_conexion);
     setEstadoCargando(false);
   }
 }
@@ -247,19 +278,19 @@ if (regDni && regNombre && btnRegistrar) {
     const dni = regDni.value.trim();
 
     if (!nombre || !region || !localidad || !dni) {
-      mostrarErrorReg('Todos los campos son obligatorios');
+      mostrarErrorReg(TRADUCCIONES[idiomaActual].reg_error_campos);
       return;
     }
     if (nombre.length < 3) {
-      mostrarErrorReg('El nombre debe tener al menos 3 caracteres');
+      mostrarErrorReg(TRADUCCIONES[idiomaActual].reg_error_nombre_corto);
       return;
     }
     if (!/[a-zA-Záéíóúüñ]/.test(nombre)) {
-      mostrarErrorReg('El nombre debe contener al menos una letra');
+      mostrarErrorReg(TRADUCCIONES[idiomaActual].reg_error_sin_letra);
       return;
     }
     if (dni.length !== 8) {
-      mostrarErrorReg('La clave debe tener 8 dígitos');
+      mostrarErrorReg(TRADUCCIONES[idiomaActual].reg_error_clave);
       return;
     }
 
@@ -277,18 +308,19 @@ if (regDni && regNombre && btnRegistrar) {
       const data = await res.json();
 
       if (res.ok) {
-        regBtnTexto.textContent = '¡Registro exitoso!';
+        regBtnTexto.textContent = TRADUCCIONES[idiomaActual].registrando_exitoso;
         regSpinner.style.display = 'none';
         btnRegistrar.style.background = '#2D6A4F';
+        guardarIdiomaCookie(idiomaActual);
         setTimeout(() => { window.location.href = '/'; }, 800);
       } else {
-        mostrarErrorReg(data.error || 'Error al registrar');
+        mostrarErrorReg(data.error || TRADUCCIONES[idiomaActual].login_error);
         btnRegistrar.disabled = false;
         regSpinner.style.display = 'none';
         regBtnTexto.textContent = TRADUCCIONES[idiomaActual].reg_btn;
       }
     } catch (err) {
-      mostrarErrorReg('Error de conexión');
+      mostrarErrorReg(TRADUCCIONES[idiomaActual].login_error_conexion);
       btnRegistrar.disabled = false;
       regSpinner.style.display = 'none';
       regBtnTexto.textContent = TRADUCCIONES[idiomaActual].reg_btn;

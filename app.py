@@ -15,7 +15,7 @@ directamente. Ver ARCHITECTURE.md para el flujo completo request → IA → DB.
 Última actualización: 2026-06-18 (ver CHANGELOG.md → [0.4.0])
 """
 
-from flask import Flask, request, jsonify, render_template, render_template_string, session, send_file
+from flask import Flask, request, jsonify, render_template, render_template_string, session, send_file, g, make_response
 from flask_cors import CORS
 from dotenv import load_dotenv
 from functools import wraps
@@ -38,6 +38,16 @@ app.secret_key = "frutia_secret_2024"
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 inicializar_db()
+
+@app.before_request
+def idioma_desde_cookie():
+    g.idioma = request.cookies.get("idioma") or session.get("idioma") or "es"
+    if g.idioma not in ("es", "qu"):
+        g.idioma = "es"
+
+@app.context_processor
+def inyectar_idioma():
+    return {"idioma_global": g.get("idioma", "es")}
 
 # Las fotos de cultivos van directo a static/uploads/ (carpeta ya presente
 # en el repo); los avatares de perfil viven en una subcarpeta propia que
@@ -67,8 +77,38 @@ def obtener_pdf_emoji_paths():
 # aceptable para un widget informativo de "estado del sistema".
 ultimo_tiempo_respuesta = None
 
-PROMPT = """
-Eres un experto en agronomía y fitosanidad especializado en cultivos peruanos.
+def obtener_prompt(idioma):
+    if idioma == "qu":
+        return """Eres un experto en agronomía y fitosanidad especializado en cultivos peruanos.
+Analiza la imagen y responde ÚNICAMENTE con un JSON válido, sin texto extra, sin bloques de código.
+IMPORTANTE: Los NOMBRES de los campos del JSON deben quedar EXACTAMENTE en español (cultivo, maduracion, confianza, enfermedades, explicacion, zona_afectada, tratamiento, recomendacion_consumo, advertencia, fuentes). Solo los VALORES de esos campos deben estar en QUECHUA (Runasimi).
+
+IMPORTANTE: El nombre del cultivo DEBE ser el nombre común utilizado en Perú (por ejemplo, "Palta" en vez de "Aguacate", "Granadilla" en vez de "Granado", "Choclo" en vez de "Elote") seguido de su nombre científico entre paréntesis. Ejemplo: "Palta (Persea americana)".
+
+PASO 1 — Validación:
+Determina si la imagen contiene un cultivo, fruta, hortaliza, planta, hoja o producto agrícola.
+Si NO es agrícola responde SOLO: {"valido": false, "motivo": "descripción breve de lo que se ve"}
+
+PASO 2 — Diagnóstico (solo si es agrícola):
+{
+  "valido": true,
+  "cultivo": "Nombre común en Perú (Nombre científico)",
+  "maduracion": "Verde / En desarrollo / Listo para cosecha / Sobre maduro",
+  "confianza": 85,
+  "enfermedades": [
+    {"nombre": "nombre","severidad": "Leve / Moderada / Severa","descripcion": "descripción visual"}
+  ],
+  "explicacion": ["Observación 1","Observación 2","Observación 3"],
+  "zona_afectada": {"x":20,"y":30,"width":40,"height":35,"descripcion":"Zona afectada"},
+  "tratamiento": "recomendación concreta (si no necesita, escribir 'Mana hampiy recomendacionniyuq')",
+  "recomendacion_consumo": "Breve advertencia o recomendación alimentaria (ej: Alto en azúcares, consumo moderado para diabéticos. Si no aplica, escribir 'Mana ima contraindicación tarikunchu')",
+  "advertencia": "Kay diagnósticoqa orientativo. K'umuyuq agrónomo ingeniero nisqatawantaq.",
+  "fuentes": [{"titulo":"título del documento o guía","institucion":"FAO / SENASA / MINAGRI"}]
+}
+Si no hay enfermedades: "enfermedades"=[] y "zona_afectada"={}
+explicacion: 3-5 observaciones visuales específicas.
+RESPONDE SIEMPRE EN QUECHUA (Runasimi)."""
+    return """Eres un experto en agronomía y fitosanidad especializado en cultivos peruanos.
 Analiza la imagen y responde ÚNICAMENTE con un JSON válido, sin texto extra, sin bloques de código.
 
 IMPORTANTE: El nombre del cultivo DEBE ser el nombre común utilizado en Perú (por ejemplo, "Palta" en vez de "Aguacate", "Granadilla" en vez de "Granado", "Choclo" en vez de "Elote") seguido de su nombre científico entre paréntesis. Ejemplo: "Palta (Persea americana)".
@@ -116,7 +156,7 @@ def index():
                            usuario=session.get("nombre"),
                            rol=session.get("rol"),
                            avatar=session.get("avatar_path"),
-                           idioma=session.get("idioma", "es"))
+                           idioma=g.idioma)
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -136,9 +176,21 @@ def login():
     session["avatar_path"]  = usuario.get("avatar_path")
     session["localidad"]    = usuario.get("localidad")
     session["idioma"]       = idioma
-    return jsonify({"mensaje": f"Bienvenido, {usuario['nombre']}!",
+    resp = make_response(jsonify({"mensaje": f"Bienvenido, {usuario['nombre']}!",
                     "nombre": usuario["nombre"], "rol": usuario["rol"],
-                    "idioma": idioma})
+                    "idioma": idioma}))
+    resp.set_cookie("idioma", idioma, max_age=31536000, path="/", samesite="Lax")
+    return resp
+
+@app.route("/debug/idioma")
+def debug_idioma():
+    return jsonify({
+        "g.idioma": g.get("idioma", "no set"),
+        "session.idioma": session.get("idioma", "no set"),
+        "cookie": request.cookies.get("idioma", "no cookie"),
+        "cookies_todas": dict(request.cookies),
+        "usuario_id": session.get("usuario_id"),
+    })
 
 @app.route("/logout")
 def logout():
@@ -176,9 +228,11 @@ def registro():
         session["avatar_path"]  = usuario.get("avatar_path")
         session["localidad"]    = usuario.get("localidad")
         session["idioma"]       = idioma
-        return jsonify({"mensaje": f"¡Registro exitoso! Bienvenido, {usuario['nombre']}!",
+        resp = make_response(jsonify({"mensaje": f"¡Registro exitoso! Bienvenido, {usuario['nombre']}!",
                         "nombre": usuario["nombre"], "rol": usuario["rol"],
-                        "idioma": idioma})
+                        "idioma": idioma}))
+        resp.set_cookie("idioma", idioma, max_age=31536000, path="/", samesite="Lax")
+        return resp
     return jsonify({"error": resultado.get("error", "Error al registrar")}), 409
 
 @app.route("/analizar", methods=["POST"])
@@ -207,14 +261,16 @@ def analizar():
             imagen_base64 = imagen_base64.split(",")[1]
         imagen_bytes = base64.b64decode(imagen_base64)
 
-        # Se mide el tiempo de respuesta de la IA para mostrarlo en el
-        # widget "Estado del sistema" (ver /estado más abajo).
+        # Detectar idioma para que la IA responda en el mismo
+        idioma = request.cookies.get("idioma") or session.get("idioma", "es")
+        if idioma not in ("es", "qu"):
+            idioma = "es"
         t0 = time.time()
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[{"role": "user", "content": [
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{imagen_base64}"}},
-                {"type": "text", "text": PROMPT}
+                {"type": "text", "text": obtener_prompt(idioma)}
             ]}],
             max_tokens=1024
         )
@@ -344,32 +400,57 @@ def chat_diagnostico():
         return jsonify({"error": "La pregunta no puede estar vacía"}), 400
 
     # Construir el sistema con contexto del diagnóstico
-    cultivo      = contexto.get("cultivo", "cultivo desconocido")
+    cultivo_raw  = contexto.get("cultivo", "cultivo desconocido")
+    # Se usa solo el nombre común (sin el nombre científico entre paréntesis)
+    # para evitar que el modelo se obsesione repitiéndolo en cada frase.
+    cultivo = cultivo_raw.split("(")[0].strip() or cultivo_raw
     enfermedades = contexto.get("enfermedades", [])
     tratamiento  = contexto.get("tratamiento", "")
     localidad    = session.get("localidad", "Perú")
 
     enf_texto = ", ".join([e.get("nombre", "") for e in enfermedades]) if enfermedades else "ninguna"
 
-    system_prompt = f"""Eres el asistente agronómico de FrutIA, especializado en cultivos peruanos.
+    idioma = request.cookies.get("idioma") or session.get("idioma", "es")
+    if idioma not in ("es", "qu"):
+        idioma = "es"
+    if idioma == "qu":
+        instruccion_idioma = "Responde OBLIGATORIAMENTE en quechua (Runasimi). NO uses español en tu respuesta."
+        idioma_inicio = "ATENCIÓN: Debes responder SIEMPRE en quechua (Runasimi), nunca en español.\n\n"
+        regla_coherencia = (
+            "Escribe quechua correcto, natural y coherente. "
+            "NO mezcles español. NO repitas el nombre del cultivo en cada frase. "
+            "Responde máximo 2 oraciones cortas y directas."
+        )
+    else:
+        instruccion_idioma = "Responde SIEMPRE en español."
+        idioma_inicio = ""
+        regla_coherencia = (
+            "Responde máximo 2 oraciones cortas y directas. "
+            "No repitas el nombre del cultivo en cada frase."
+        )
+
+    system_prompt = f"""{idioma_inicio}Eres el asistente agronómico de FrutIA, especializado en cultivos peruanos.
 Acabas de analizar un cultivo y el agricultor tiene preguntas de seguimiento.
 
 CONTEXTO DEL DIAGNÓSTICO ACTUAL:
-- Cultivo detectado: {cultivo}
+- Cultivo: {cultivo}
 - Enfermedades: {enf_texto}
 - Tratamiento recomendado: {tratamiento}
 - Localidad del agricultor: {localidad}
 
-Responde de forma clara, práctica y breve (máximo 3-4 oraciones). Usa lenguaje sencillo, sin tecnicismos innecesarios.
+Responde de forma clara, práctica y breve. Usa lenguaje sencillo, sin tecnicismos.
 
 IMPORTANTE:
 - Incluye emojis relacionados al campo (🌱🌿🍎🌽🥬🚜💧☀️🐛🧑‍🌾✅⚠️❌🛑💊📚 según corresponda).
 - Usa **negritas** (con doble asterisco) para resaltar palabras clave como nombres de cultivos, enfermedades, tratamientos o datos importantes.
-- Si la pregunta es sobre el cultivo analizado, responde con precisión. Si es completamente ajena a la agronomía, indícalo amablemente y redirige la conversación al cultivo."""
+- Si la pregunta es sobre el cultivo analizado, responde con precisión. Si es completamente ajena a la agronomía, indícalo amablemente y redirige la conversación al cultivo.
+- {regla_coherencia}
+- {instruccion_idioma}"""
 
-    # Armar historial de mensajes para la IA
+    # Armar historial de mensajes para la IA (solo las últimas 4 intervenciones
+    # para evitar que el modelo se degrade en idiomas de bajos recursos).
     messages_groq = [{"role": "system", "content": system_prompt}]
-    for msg in mensajes[-10:]:   # máximo 10 mensajes de contexto
+    for msg in mensajes[-4:]:
         if msg.get("rol") in ("user", "assistant"):
             messages_groq.append({"role": msg["rol"], "content": msg["texto"]})
     messages_groq.append({"role": "user", "content": pregunta})
@@ -378,10 +459,15 @@ IMPORTANTE:
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=messages_groq,
-            max_tokens=512
+            max_tokens=320
         )
         respuesta = response.choices[0].message.content.strip()
-        return jsonify({"respuesta": respuesta})
+        # Guarda el límite de 15 preguntas también en el backend (defensa en profundidad)
+        pregunta_num = int(data.get("pregunta_num", 0) or 0)
+        extra = {}
+        if pregunta_num >= 15:
+            extra["limite"] = True
+        return jsonify({"respuesta": respuesta, **extra})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -418,7 +504,7 @@ def estado_sistema():
 
 REPORTE_PDF_TEMPLATE = """
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ idioma }}">
 <head>
 <meta charset="UTF-8">
 <style>
@@ -426,7 +512,7 @@ REPORTE_PDF_TEMPLATE = """
     size: A4;
     margin: 18mm 16mm 22mm 16mm;
     @bottom-center {
-      content: "Generado automáticamente por FrutIA  |  {{ fecha }} {{ hora }}";
+      content: "{{ t.generado_por }} FrutIA  |  {{ fecha }} {{ hora }}";
       font-size: 8px;
       color: #9CA3AF;
       font-family: Arial, sans-serif;
@@ -558,7 +644,7 @@ REPORTE_PDF_TEMPLATE = """
             <img src="{{ logo_path }}" class="logo-img" alt="FrutIA">
           {% endif %}
           <span class="logo-texto"><img src="{{ emoji.sprout }}" class="emoji-img emoji-logo" alt="">Frut<span class="ia-marca">IA</span></span>
-          <div class="logo-sub">Reporte de Diagnóstico Agronómico</div>
+          <div class="logo-sub">{{ t.reporte_subtitulo }}</div>
         </td>
         <td class="cab-fecha">{{ fecha }}<br>{{ hora }}</td>
       </tr>
@@ -572,24 +658,24 @@ REPORTE_PDF_TEMPLATE = """
         {% if imagen_path %}
           <img class="principal-img" src="{{ imagen_path }}" alt="Cultivo analizado">
         {% else %}
-          <div class="sin-img">Sin imagen</div>
+          <div class="sin-img">{{ t.sin_imagen }}</div>
         {% endif %}
       </td>
       <td class="datos-col">
         <div class="cultivo-nombre">{{ cultivo }}</div>
         <table class="dato-tabla">
           <tr>
-            <td class="dato-label">Estado de maduración</td>
+            <td class="dato-label">{{ t.estado_maduracion }}</td>
             <td class="dato-valor">{{ maduracion }}</td>
           </tr>
           <tr>
-            <td class="dato-label">Confianza de la IA</td>
+            <td class="dato-label">{{ t.confianza_ia }}</td>
             <td class="dato-valor">{{ confianza }}%</td>
           </tr>
         </table>
         <!-- Barra de confianza -->
         <div class="conf-wrap">
-          <div class="conf-label">Nivel de confianza del diagnóstico</div>
+          <div class="conf-label">{{ t.nivel_confianza }}</div>
           <div class="conf-track">
             <div class="conf-fill {% if confianza >= 80 %}verde{% elif confianza >= 60 %}amarillo{% else %}rojo{% endif %}"
                  style="width: {{ confianza }}%;"></div>
@@ -607,7 +693,7 @@ REPORTE_PDF_TEMPLATE = """
   <!-- ENFERMEDADES -->
   <div class="bloque">
     {% if enfermedades %}
-      <div class="bloque-titulo enfermedad"><img src="{{ emoji.warning }}" class="emoji-img" alt="">Enfermedades detectadas</div>
+      <div class="bloque-titulo enfermedad"><img src="{{ emoji.warning }}" class="emoji-img" alt="">{{ t.enfermedades_detectadas }}</div>
       {% for e in enfermedades %}
         <div class="enf-item">
           <span class="enf-nombre">{{ e.nombre }}</span>
@@ -618,14 +704,14 @@ REPORTE_PDF_TEMPLATE = """
         </div>
       {% endfor %}
     {% else %}
-      <div class="bloque-titulo sano"><img src="{{ emoji.check }}" class="emoji-img" alt="">Cultivo en buen estado — sin enfermedades detectadas</div>
+      <div class="bloque-titulo sano"><img src="{{ emoji.check }}" class="emoji-img" alt="">{{ t.cultivo_sano }}</div>
     {% endif %}
   </div>
 
   <!-- OBSERVACIONES VISUALES -->
   {% if explicacion %}
   <div class="bloque">
-    <div class="bloque-titulo obs"><img src="{{ emoji.microscope }}" class="emoji-img" alt="">Observaciones Visuales</div>
+    <div class="bloque-titulo obs"><img src="{{ emoji.microscope }}" class="emoji-img" alt="">{{ t.observaciones }}</div>
     <ul class="obs-lista">
       {% for obs in explicacion %}<li>{{ obs }}</li>{% endfor %}
     </ul>
@@ -634,24 +720,24 @@ REPORTE_PDF_TEMPLATE = """
 
   <!-- TRATAMIENTO -->
   <div class="bloque">
-    <div class="bloque-titulo tratamiento"><img src="{{ emoji.pill }}" class="emoji-img" alt="">Tratamiento Recomendado</div>
+    <div class="bloque-titulo tratamiento"><img src="{{ emoji.pill }}" class="emoji-img" alt="">{{ t.tratamiento }}</div>
     <div class="caja-tratamiento">
       {% if tratamiento and tratamiento != '—' %}
         {{ tratamiento }}
       {% else %}
-        No requiere tratamiento fitosanitario especial.
+        {{ t.tratamiento_default }}
       {% endif %}
     </div>
   </div>
 
   <!-- RECOMENDACIÓN DE CONSUMO -->
   <div class="bloque">
-    <div class="bloque-titulo obs" style="color: #9333EA;"><img src="{{ emoji.fork_knife }}" class="emoji-img" alt="">Recomendación de Consumo</div>
+    <div class="bloque-titulo obs" style="color: #9333EA;"><img src="{{ emoji.fork_knife }}" class="emoji-img" alt="">{{ t.recomendacion_consumo }}</div>
     <div class="caja-tratamiento" style="background: #FAF5FF; border-left-color: #A855F7;">
-      {% if recomendacion_consumo and recomendacion_consumo.lower() != 'sin contraindicaciones relevantes' %}
+       {% if recomendacion_consumo and recomendacion_consumo.lower() not in ('sin contraindicaciones relevantes', 'mana ima contraindicación tarikunchu') %}
         {{ recomendacion_consumo }}
       {% else %}
-        Sin contraindicaciones ni precauciones especiales detectadas.
+        {{ t.consumo_default }}
       {% endif %}
     </div>
   </div>
@@ -659,7 +745,7 @@ REPORTE_PDF_TEMPLATE = """
   <!-- FUENTES -->
   {% if fuentes %}
   <div class="bloque">
-    <div class="bloque-titulo fuentes"><img src="{{ emoji.books }}" class="emoji-img" alt="">Fuentes consultadas</div>
+    <div class="bloque-titulo fuentes"><img src="{{ emoji.books }}" class="emoji-img" alt="">{{ t.fuentes }}</div>
     {% for f in fuentes %}
       <div class="fuente-item">
         <span class="fuente-titulo">{{ f.titulo }}</span>
@@ -671,7 +757,7 @@ REPORTE_PDF_TEMPLATE = """
 
   <!-- ADVERTENCIA -->
   <div class="advertencia">
-    <img src="{{ emoji.warning }}" class="emoji-img" alt="">{{ advertencia or 'Este diagnóstico es orientativo y no reemplaza la evaluación de un ingeniero agrónomo certificado.' }}
+    <img src="{{ emoji.warning }}" class="emoji-img" alt="">    {{ advertencia or t.advertencia }}
   </div>
 
 </body>
@@ -691,6 +777,53 @@ def reporte_pdf(analisis_id):
     if not analisis:
         return jsonify({"error": "Analisis no encontrado"}), 404
 
+    idioma = request.cookies.get("idioma") or g.get("idioma", "es")
+    if idioma not in ("es", "qu"):
+        idioma = "es"
+
+    PDF_T = {
+        "es": {
+            "reporte_subtitulo": "Reporte de Diagnóstico Agronómico",
+            "sin_imagen": "Sin imagen",
+            "estado_maduracion": "Estado de maduración",
+            "confianza_ia": "Confianza de la IA",
+            "nivel_confianza": "Nivel de confianza del diagnóstico",
+            "enfermedades_detectadas": "Enfermedades detectadas",
+            "cultivo_sano": "Cultivo en buen estado — sin enfermedades detectadas",
+            "observaciones": "Observaciones Visuales",
+            "tratamiento": "Tratamiento Recomendado",
+            "tratamiento_default": "No requiere tratamiento fitosanitario especial.",
+            "recomendacion_consumo": "Recomendación de Consumo",
+            "consumo_default": "Sin contraindicaciones ni precauciones especiales detectadas.",
+            "fuentes": "Fuentes consultadas",
+            "advertencia": "Este diagnóstico es orientativo y no reemplaza la evaluación de un ingeniero agrónomo certificado.",
+            "cultivo_default": "Cultivo desconocido",
+            "maduracion_default": "—",
+            "generado_por": "Generado automáticamente por",
+        },
+        "qu": {
+            "reporte_subtitulo": "Chakra Diagnóstico Willakuy",
+            "sin_imagen": "Mana rikcha",
+            "estado_maduracion": "Puquy kay",
+            "confianza_ia": "IA confianza",
+            "nivel_confianza": "Diagnóstico confianza nivel",
+            "enfermedades_detectadas": "Unquykuna tarisqa",
+            "cultivo_sano": "Allin yuka — mana unquy tarikunchu",
+            "observaciones": "Qhawaykuna",
+            "tratamiento": "Hampiy",
+            "tratamiento_default": "Mana hampiy necesitachu.",
+            "recomendacion_consumo": "Mikhuy yuyay",
+            "consumo_default": "Mana ima contraindicación tarikunchu.",
+            "fuentes": "Willakuykuna",
+            "advertencia": "Kay diagnóstico yuyayllapaq, mana ingeniero agronomo rantinchu.",
+            "cultivo_default": "Mana riqsisqa yuka",
+            "maduracion_default": "—",
+            "generado_por": "Kay ruwasqa FrutIAwan",
+        },
+    }
+
+    t = PDF_T.get(idioma, PDF_T["es"])
+
     # Imagen del cultivo — ruta absoluta file:// para WeasyPrint
     imagen_path = None
     if analisis.get("imagen_path"):
@@ -707,15 +840,17 @@ def reporte_pdf(analisis_id):
     ahora = datetime.now()
     html_final = render_template_string(
         REPORTE_PDF_TEMPLATE,
-        cultivo=analisis.get("cultivo") or "Cultivo desconocido",
-        maduracion=analisis.get("maduracion") or "—",
+        t=t,
+        idioma=idioma,
+        cultivo=analisis.get("cultivo") or t["cultivo_default"],
+        maduracion=analisis.get("maduracion") or t["maduracion_default"],
         confianza=analisis.get("confianza") or 0,
         enfermedades=analisis.get("enfermedades") or [],
         explicacion=analisis.get("explicacion") or [],
         tratamiento=analisis.get("tratamiento"),
         recomendacion_consumo=analisis.get("recomendacion_consumo"),
         fuentes=analisis.get("fuentes") or [],
-        advertencia=analisis.get("advertencia"),
+        advertencia=analisis.get("advertencia") or t["advertencia"],
         imagen_path=imagen_path,
         logo_path=logo_path,
         emoji=obtener_pdf_emoji_paths(),
@@ -808,7 +943,9 @@ def perfil_idioma():
         return jsonify({"error": "Idioma no soportado"}), 400
     actualizar_idioma(session["usuario_id"], idioma)
     session["idioma"] = idioma
-    return jsonify({"mensaje": "Idioma actualizado", "idioma": idioma})
+    resp = make_response(jsonify({"mensaje": "Idioma actualizado", "idioma": idioma}))
+    resp.set_cookie("idioma", idioma, max_age=31536000, path="/", samesite="Lax")
+    return resp
 
 
 # ── Rutas Admin ───────────────────────────────────────────────────

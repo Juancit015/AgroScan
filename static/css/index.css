@@ -6,7 +6,7 @@
   --texto:#1A1A1A;--texto-suave:#6B7280;--error:#DC2626;--warning:#D97706;--success:#16A34A;
   --z-navbar:100;--z-toast:180;--z-mobile-nav:300;--z-modal:1000;
 }
-body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min-height:100vh;}
+body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min-height:100vh;overflow-x:hidden;}
 
 /* ── Sistema de notificaciones (toast) ──────────────────────────────
    Estilo "logro desbloqueado": ícono circular + título + descripción,
@@ -288,7 +288,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 
 /* ── Analizador ── */
 .analizador-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;}
-.panel-camara{background:#fff;border-radius:16px;padding:1.5rem;box-shadow:0 4px 20px rgba(0,0,0,.06);}
+.panel-camara{background:#fff;border-radius:16px;padding:1.5rem;box-shadow:0 4px 20px rgba(0,0,0,.06);min-width:0;}
 .camara-header{margin-bottom:1rem;}
 .camara-header h2{font-family:var(--font-sans);font-size:1.1rem;font-weight:700;color:var(--verde-profundo);}
 .camara-header p{font-size:.82rem;color:var(--texto-suave);margin-top:.2rem;}
@@ -318,7 +318,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 .btn-upload:hover{color:var(--verde-profundo);}
 
 /* ── Resultado ── */
-.panel-resultado{background:#fff;border-radius:16px;padding:1.5rem;box-shadow:0 4px 20px rgba(0,0,0,.06);min-height:400px;display:flex;flex-direction:column;}
+.panel-resultado{background:#fff;border-radius:16px;padding:1.5rem;box-shadow:0 4px 20px rgba(0,0,0,.06);min-height:400px;display:flex;flex-direction:column;min-width:0;}
 .resultado-vacio{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.75rem;color:var(--texto-suave);}
 .vacio-icon{font-size:3.5rem;}
 .resultado-vacio h3{font-family:var(--font-sans);font-size:1.1rem;color:var(--verde-profundo);}
@@ -333,6 +333,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 .invalido-lista li{font-size:.82rem;color:var(--texto-suave);}
 .invalido-accion{font-size:.82rem;color:var(--verde-medio);font-weight:600;}
 .resultado-contenido{display:flex;flex-direction:column;gap:1rem;}
+.resultado-contenido p,.resultado-contenido li,.resultado-contenido h4{overflow-wrap:anywhere;word-break:break-word;}
 .resultado-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:1rem;border-bottom:1px solid var(--gris-suave);}
 .cultivo-nombre{font-family:var(--font-sans);font-size:1.4rem;font-weight:800;color:var(--verde-profundo);}
 .maduracion-tag{background:var(--verde-profundo);color:#fff;padding:.4rem .9rem;border-radius:8px;font-size:.82rem;font-weight:600;white-space:nowrap;margin-top:.3rem;display:inline-block;}
@@ -525,6 +526,15 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
   .futuro-grid{grid-template-columns:1fr;}
   .status-bar{gap:.75rem;}
 
+  /* Analizador en móvil: acotar tamaños para que las tarjetas (foto del
+     cultivo y resultado) no queden gigantes en pantallas pequeñas. */
+  .panel-camara, .panel-resultado{padding:1.1rem;}
+  .panel-resultado{min-height:0;}
+  .camara-wrap{aspect-ratio:4/3;max-height:230px;}
+  .cultivo-nombre{font-size:1.15rem;}
+  .camara-controles{flex-wrap:wrap;}
+  .btn-captura{flex:1 1 auto;}
+
 }
 
 /* ── Tablet (641-768px): hamburguesa, oculta nav desktop ── */
@@ -655,6 +665,15 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
     filter: grayscale(0);
     transform: translateY(-2px);
   }
+  .nav-movil-camara { position: relative; top: -12px; }
+  .nav-movil-camara .nav-movil-icon {
+    width: 44px; height: 44px; margin: 0 auto 3px;
+    background: var(--verde-claro); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; filter: grayscale(0); color: #fff;
+    box-shadow: 0 4px 14px rgba(82,183,136,.35);
+  }
+  .nav-movil-camara.active .nav-movil-icon { background: var(--verde-profundo); }
   .nav-movil-fab {
     position: relative;
     top: -20px;
