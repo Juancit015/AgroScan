@@ -203,7 +203,10 @@ No hay recarga de página al navegar entre secciones — todo ocurre vía
    - error HTTP → `mostrarError()`
    - éxito → `mostrarResultado()`, que rellena el DOM con cultivo,
      confianza (barra de color), enfermedades, explicación, zona afectada
-     (overlay posicionado con `%` sobre la imagen) y fuentes
+     (overlay posicionado con `%` sobre la imagen) y fuentes.
+     El resultado se persiste en `localStorage` (`frutia_ultimo_analisis`)
+     y al recargar la página `initState()` lo restaura automáticamente
+     sin forzar la sección activa si el usuario está en otra sección.
 
 ### 4.4 Gráficas del dashboard
 

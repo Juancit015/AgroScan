@@ -27,8 +27,10 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 - **Modales slide-up en móvil**: Los modales aparecen desde abajo en pantallas chicas, más natural en dispositivos táctiles.
 - **Sección Perfil**: Nueva página accesible desde el nav (escritorio y móvil) con foto, nombre, rol, región, localidad, fecha de registro y total de análisis. Permite editar nombre/región/localidad inline, cerrar sesión y eliminar la cuenta.
 - **Validación de nombre**: Al registrarse o crear/editar usuarios desde admin, el nombre debe contener al menos una letra (no solo números).
+- **Persistencia del último análisis**: El resultado del análisis se guarda en `localStorage` (`frutia_ultimo_analisis`) y se restaura automáticamente al recargar la página, incluyendo la imagen desde la ruta del servidor.
 
 ### Corregido
+- **Sección incorrecta al recargar**: Si había un análisis guardado en `localStorage`, `initState()` forzaba la sección analizador incluso si el usuario estaba en otra sección (admin, perfil, etc.). Ahora solo cambia a analizador si no hay otra sección guardada, y al volver a analizador se restaura el resultado desde `window.ultimoDiagnosticoData`.
 - **Favicon faltante en panel principal**: `index.html` apuntaba a `favicon.ico` inexistente; se redirigió al mismo `.png` que usa `login.html`.
 - **Color de IA en reporte PDF**: Se agregó regla CSS y span específico para que "IA" en el logo del PDF herede el color marrón de marca.
 - **Parpadeo en la navegación**: Se solucionó un efecto visual de "parpadeo" que ocurría al recargar la página (`F5`), donde la plataforma mostraba fugazmente la vista del 'Analizador' antes de redirigir a la sección guardada. La inicialización del estado ahora se ejecuta de forma síncrona antes del primer renderizado visual del navegador.

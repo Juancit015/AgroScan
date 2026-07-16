@@ -140,9 +140,7 @@ function escaparHtml(text) {
   if (analisisGuardado) {
     try {
       const data = JSON.parse(analisisGuardado);
-      document.querySelectorAll('.nav-link, .nav-link-movil').forEach(l => l.classList.remove('active'));
-      document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
-      document.getElementById('sec-analizador').classList.add('activa');
+      window.ultimoDiagnosticoData = data;
       const prv = document.getElementById('preview');
       const ph  = document.getElementById('placeholder');
       const btn = document.getElementById('btn-reiniciar');
@@ -152,7 +150,12 @@ function escaparHtml(text) {
         ph.style.display = 'none';
       }
       if (btn) btn.style.display = 'block';
-      mostrarResultado(data);
+      if (!seccionGuardada || seccionGuardada === 'analizador') {
+        document.querySelectorAll('.nav-link, .nav-link-movil').forEach(l => l.classList.remove('active'));
+        document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
+        document.getElementById('sec-analizador').classList.add('activa');
+        mostrarResultado(data);
+      }
     } catch (e) {}
   }
 })();
@@ -246,6 +249,9 @@ document.querySelectorAll('.nav-link, .nav-link-movil[data-section]').forEach(li
     document.querySelectorAll(`.nav-link[data-section="${sec}"], .nav-link-movil[data-section="${sec}"]`).forEach(l => l.classList.add('active'));
     document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
     document.getElementById(`sec-${sec}`).classList.add('activa');
+    if (sec === 'analizador' && window.ultimoDiagnosticoData && document.getElementById('resultado-contenido').style.display !== 'flex') {
+      mostrarResultado(window.ultimoDiagnosticoData);
+    }
     if (sec === 'historial') cargarHistorial();
     if (sec === 'dashboard') cargarDashboard();
     if (sec === 'admin') cargarAdmin();
