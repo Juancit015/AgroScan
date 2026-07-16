@@ -268,7 +268,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
   font-family:var(--font-sans);
   transition:background .2s,border-color .2s,transform .15s;
 }
-.btn-logout:hover{background:#fff;color:var(--verde-profundo);border-color:#fff;}
+.btn-logout:hover{background:var(--error);color:#fff;border-color:var(--error);}
 .btn-logout:active{transform:scale(.96);}
 .btn-logout svg{flex-shrink:0;}
 
@@ -311,7 +311,53 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 .btn-secundario:hover{border-color:var(--verde-claro);color:var(--verde-medio);box-shadow:0 2px 8px rgba(82,183,136,.12);}
 .btn-pdf{background:var(--verde-profundo);color:#fff;border-color:var(--verde-profundo);padding:.7rem 2.5rem;min-width:200px;font-size:.92rem;letter-spacing:.3px;border-radius:10px;}
 .btn-pdf:hover{background:var(--verde-medio);border-color:var(--verde-medio);color:#fff;box-shadow:0 4px 14px rgba(82,183,136,.3);transform:translateY(-1px);}
-.btn-captura{flex:1;}
+.btn-captura{
+  flex:1;
+  padding:.85rem 1rem;
+  border-radius:12px;
+  font-size:.92rem;
+  font-weight:700;
+  letter-spacing:.2px;
+  box-shadow:0 4px 12px rgba(27,67,50,.18);
+  transition:transform .4s cubic-bezier(.22,.61,.36,1), box-shadow .4s ease, background .4s ease, filter .4s ease;
+}
+.btn-captura:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(27,67,50,.24);}
+.btn-principal.btn-captura{background:linear-gradient(135deg,var(--verde-profundo),var(--verde-medio));}
+.btn-principal.btn-captura:hover:not(:disabled){background:linear-gradient(135deg,var(--verde-medio),var(--verde-claro));filter:brightness(1.1);}
+.btn-secundario.btn-captura{
+  background:#fff;
+  border:2px solid var(--gris-suave);
+  color:var(--verde-profundo);
+  box-shadow:none;
+}
+.btn-secundario.btn-captura:hover{
+  border-color:var(--verde-claro);
+  color:var(--verde-medio);
+  background:#F0FDF4;
+  box-shadow:0 3px 10px rgba(82,183,136,.18);
+  transform:translateY(-1px);
+}
+/* "Nueva foto": botón ancho y centrado, no pegado en una esquina */
+#btn-reiniciar{
+  width:100%;
+  justify-content:center;
+  margin-top:.6rem;
+  padding:.7rem 1rem;
+  border-radius:12px;
+  font-weight:700;
+  background:#fff;
+  border:2px solid var(--gris-suave);
+  box-shadow:none;
+  transition:all .4s ease;
+}
+#btn-reiniciar::after{content:"\2728\FE0F";margin-left:.5rem;font-size:1rem;}
+#btn-reiniciar:hover{
+  border-color:var(--verde-claro);
+  color:var(--verde-medio);
+  background:#F0FDF4;
+  box-shadow:0 3px 10px rgba(82,183,136,.18);
+  transform:translateY(-1px);
+}
 .upload-alt{display:flex;align-items:center;justify-content:center;gap:.6rem;margin-top:.25rem;color:var(--texto-suave);font-size:.82rem;}
 .upload-alt span{color:var(--gris-medio);}
 .btn-upload{color:var(--verde-medio);font-weight:600;cursor:pointer;font-size:.82rem;text-decoration:underline;text-underline-offset:3px;background:none;border:none;font-family:var(--font-sans);}
@@ -319,7 +365,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 
 /* ── Resultado ── */
 .panel-resultado{background:#fff;border-radius:16px;padding:1.5rem;box-shadow:0 4px 20px rgba(0,0,0,.06);min-height:400px;display:flex;flex-direction:column;min-width:0;}
-.resultado-vacio{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.75rem;color:var(--texto-suave);}
+.resultado-vacio{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.75rem;color:var(--texto-suave);padding:2.5rem 1.5rem;}
 .vacio-icon{font-size:3.5rem;}
 .resultado-vacio h3{font-family:var(--font-sans);font-size:1.1rem;color:var(--verde-profundo);}
 .resultado-vacio p{font-size:.85rem;max-width:220px;}
@@ -528,9 +574,12 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 
   /* Analizador en móvil: acotar tamaños para que las tarjetas (foto del
      cultivo y resultado) no queden gigantes en pantallas pequeñas. */
-  .panel-camara, .panel-resultado{padding:1.1rem;}
+  .panel-camara{padding:.6rem;}
+  .panel-resultado{padding:1.1rem;}
   .panel-resultado{min-height:0;}
-  .camara-wrap{aspect-ratio:4/3;max-height:230px;}
+  .camara-header{margin-bottom:.4rem;}
+  .camara-wrap{aspect-ratio:4/3;max-height:none;margin-bottom:.6rem;}
+  .camara-controles{margin-bottom:.05rem;}
   .cultivo-nombre{font-size:1.15rem;}
   .camara-controles{flex-wrap:wrap;}
   .btn-captura{flex:1 1 auto;}
@@ -542,6 +591,17 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
   .nav-links-desktop{display:none;}
   .navbar > .nav-usuario{display:none;}
   .nav-toggle{display:flex;}
+  /* Logout: color original por defecto, rojo solo al pasar el mouse */
+  #btn-logout-movil{
+    background:transparent;
+    border:1px solid var(--gris-suave);
+    color:var(--texto-suave);
+  }
+  #btn-logout-movil:hover{
+    background:var(--error);
+    color:#fff;
+    border-color:var(--error);
+  }
 }
 
 /* ── Tablet + Móvil (≤768px): overlay lateral ── */

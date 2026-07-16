@@ -915,6 +915,7 @@ function escaparHtml(text) {
         document.querySelectorAll('.nav-link, .nav-link-movil').forEach(l => l.classList.remove('active'));
         document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
         document.getElementById('sec-analizador').classList.add('activa');
+        document.querySelectorAll('.nav-link[data-section="analizador"], .nav-link-movil[data-section="analizador"]').forEach(l => l.classList.add('active'));
         mostrarResultado(data, true);
       }
     } catch (e) {}
@@ -1854,6 +1855,10 @@ function confirmarEliminarSeleccion() {
           window.historialData = (window.historialData || []).filter(i => !ids.includes(i.id));
           cancelarSeleccion();
           renderHistorial(true);
+          cargarEstadoSistema(); // Actualiza KPI de total de análisis automáticamente
+          if (document.getElementById('sec-dashboard').classList.contains('activa')) {
+            cargarDashboard();
+          }
           mostrarToast('success', __('registros_eliminados'), data.mensaje);
         } else {
           mostrarToast('error', __('toast_error'), data.error);
@@ -1879,6 +1884,10 @@ function eliminarAnalisisUnico(id, nombre) {
           window.historialData = (window.historialData || []).filter(i => i.id !== id);
           cerrarModalHistorial();
           renderHistorial(true);
+          cargarEstadoSistema(); // Actualiza KPI de total de análisis automáticamente
+          if (document.getElementById('sec-dashboard').classList.contains('activa')) {
+            cargarDashboard();
+          }
           mostrarToast('success', __('registro_eliminado'), data.mensaje);
         } else {
           mostrarToast('error', __('toast_error'), data.error);
@@ -2160,6 +2169,7 @@ async function cargarHistorial() {
 // ── Dashboard ────────────────────────────────────────────────────
 async function cargarDashboard() {
   try {
+    cargarEstadoSistema(); // Actualiza KPI de total de análisis y estado del sistema
     const res  = await fetch('/estadisticas', { cache: 'no-cache' });
     const data = await res.json();
 
@@ -2181,6 +2191,10 @@ async function cargarDashboard() {
 
     // 1. Estado
     if (chartEstado) chartEstado.destroy();
+    const wrapEstado = document.getElementById('wrap-chart-estado');
+    if (wrapEstado) {
+      wrapEstado.innerHTML = '<canvas id="chart-estado"></canvas>';
+    }
     const estado = data.por_estado;
     chartEstado = new Chart(document.getElementById('chart-estado'), {
       type: 'doughnut',
@@ -2193,74 +2207,88 @@ async function cargarDashboard() {
 
     // 2. Enfermedades
     if (chartEnfermedades) chartEnfermedades.destroy();
+    const wrapEnfs = document.getElementById('wrap-chart-enfermedades');
     const enfs = data.por_enfermedad;
-    if (enfs.length > 0) {
-      chartEnfermedades = new Chart(document.getElementById('chart-enfermedades'), {
-        type: 'bar',
-        data: {
-          labels: enfs.map(e => e.nombre),
-          datasets: [{ label: __('graf_frecuencia'), data: enfs.map(e => e.cantidad), backgroundColor: WARNING, borderRadius: 6, borderSkipped: false }]
-        },
-        options: { ...baseOpts, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { stepSize: 1 }, grid: { display: false } }, y: { grid: { display: false } } } }
-      });
-    } else {
-      document.getElementById('chart-enfermedades').parentElement.innerHTML = '<div class="empty-state is-chart"><div class="empty-state-icon">🩺</div><h3>' + __('graf_sin_enfermedades') + '</h3><p>' + __('graf_sin_enfermedades_desc') + '</p></div>';
+    if (wrapEnfs) {
+      if (enfs.length > 0) {
+        wrapEnfs.innerHTML = '<canvas id="chart-enfermedades"></canvas>';
+        chartEnfermedades = new Chart(document.getElementById('chart-enfermedades'), {
+          type: 'bar',
+          data: {
+            labels: enfs.map(e => e.nombre),
+            datasets: [{ label: __('graf_frecuencia'), data: enfs.map(e => e.cantidad), backgroundColor: WARNING, borderRadius: 6, borderSkipped: false }]
+          },
+          options: { ...baseOpts, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { stepSize: 1 }, grid: { display: false } }, y: { grid: { display: false } } } }
+        });
+      } else {
+        wrapEnfs.innerHTML = '<div class="empty-state is-chart"><div class="empty-state-icon">🩺</div><h3>' + __('graf_sin_enfermedades') + '</h3><p>' + __('graf_sin_enfermedades_desc') + '</p></div>';
+      }
     }
 
     // 3. Cultivos — Top 5 + "Otros" (patrón estándar de dashboards escalables)
     if (chartCultivos) chartCultivos.destroy();
+    const wrapCultivos = document.getElementById('wrap-chart-cultivos');
     const cultivos = data.por_cultivo;
-    if (cultivos.length > 0) {
-      // "Otros" recibe un gris neutro para que quede visualmente claro que
-      // es una agregación y no un cultivo real con identidad propia.
-      const coloresCultivos = cultivos.map((c, i) =>
-        c.cultivo === 'Otros' ? '#9CA3AF' : PALETTE[i % PALETTE.length]
-      );
+    if (wrapCultivos) {
+      if (cultivos.length > 0) {
+        wrapCultivos.innerHTML = '<canvas id="chart-cultivos"></canvas>';
+        // "Otros" recibe un gris neutro para que quede visualmente claro que
+        // es una agregación y no un cultivo real con identidad propia.
+        const coloresCultivos = cultivos.map((c, i) =>
+          c.cultivo === 'Otros' ? '#9CA3AF' : PALETTE[i % PALETTE.length]
+        );
 
-      // Si hay "Otros", mostramos una nota informativa debajo del gráfico
-      // con cuántos tipos agrupa — información útil que no cabe en el chart.
-      const nOtros = cultivos.find(c => c.cultivo === 'Otros')?._n_otros;
-      const notaEl = document.getElementById('chart-cultivos-nota');
-      if (notaEl) notaEl.textContent = nOtros
-        ? __(nOtros === 1 ? 'graf_agrupa' : 'graf_agrupa_plural', nOtros)
-        : '';
+        // Si hay "Otros", mostramos una nota informativa debajo del gráfico
+        // con cuántos tipos agrupa — información útil que no cabe en el chart.
+        const nOtros = cultivos.find(c => c.cultivo === 'Otros')?._n_otros;
+        const notaEl = document.getElementById('chart-cultivos-nota');
+        if (notaEl) notaEl.textContent = nOtros
+          ? __(nOtros === 1 ? 'graf_agrupa' : 'graf_agrupa_plural', nOtros)
+          : '';
 
-      chartCultivos = new Chart(document.getElementById('chart-cultivos'), {
-        type: 'doughnut',
-        data: {
-          labels: cultivos.map(c => c.cultivo),
-          datasets: [{
-            data: cultivos.map(c => c.cantidad),
-            backgroundColor: coloresCultivos,
-            borderWidth: 0,
-            hoverOffset: 6
-          }]
-        },
-        options: {
-          ...baseOpts,
-          cutout: '55%',
-          plugins: {
-            ...baseOpts.plugins,
-            tooltip: {
-              callbacks: {
-                // Añade contexto extra en "Otros": "X tipos con menor frecuencia"
-                afterLabel: (ctx) => {
-                  const item = cultivos[ctx.dataIndex];
-                  return item._n_otros
-                    ? __(item._n_otros === 1 ? 'graf_tipos_agrupados' : 'graf_tipos_agrupados_plural', item._n_otros)
-                    : '';
+        chartCultivos = new Chart(document.getElementById('chart-cultivos'), {
+          type: 'doughnut',
+          data: {
+            labels: cultivos.map(c => c.cultivo),
+            datasets: [{
+              data: cultivos.map(c => c.cantidad),
+              backgroundColor: coloresCultivos,
+              borderWidth: 0,
+              hoverOffset: 6
+            }]
+          },
+          options: {
+            ...baseOpts,
+            cutout: '55%',
+            plugins: {
+              ...baseOpts.plugins,
+              tooltip: {
+                callbacks: {
+                  // Añade contexto extra en "Otros": "X tipos con menor frecuencia"
+                  afterLabel: (ctx) => {
+                    const item = cultivos[ctx.dataIndex];
+                    return item._n_otros
+                      ? __(item._n_otros === 1 ? 'graf_tipos_agrupados' : 'graf_tipos_agrupados_plural', item._n_otros)
+                      : '';
+                  }
                 }
               }
             }
           }
-        }
-      });
-    } else {
-      document.getElementById('chart-cultivos').parentElement.innerHTML = '<div class="empty-state is-chart"><div class="empty-state-icon">🌱</div><h3>' + __('graf_sin_cultivos') + '</h3><p>' + __('graf_sin_cultivos_desc') + '</p></div>';
+        });
+      } else {
+        wrapCultivos.innerHTML = '<div class="empty-state is-chart"><div class="empty-state-icon">🌱</div><h3>' + __('graf_sin_cultivos') + '</h3><p>' + __('graf_sin_cultivos_desc') + '</p></div>';
+        const notaEl = document.getElementById('chart-cultivos-nota');
+        if (notaEl) notaEl.textContent = '';
+      }
     }
 
     // 4. Actividad semanal
     if (chartActividad) chartActividad.destroy();
+    const wrapActividad = document.getElementById('wrap-chart-actividad');
+    if (wrapActividad) {
+      wrapActividad.innerHTML = '<canvas id="chart-actividad"></canvas>';
+    }
     const act = data.actividad_semanal;
     chartActividad = new Chart(document.getElementById('chart-actividad'), {
       type: 'line',
