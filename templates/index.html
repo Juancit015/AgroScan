@@ -53,7 +53,9 @@
       </button>
     </div>
 
-    <!-- El botón hamburguesa desaparece en favor del menú inferior -->
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Menú">
+      <span></span><span></span><span></span>
+    </button>
   </nav>
 
   <!-- Botón inferior móvil -->
@@ -88,9 +90,22 @@
   <!-- Input oculto compartido para seleccionar la nueva foto de perfil -->
   <input type="file" id="input-avatar" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;"/>
 
-  <!-- Drawer móvil ahora solo para el perfil de usuario (se abre desde el botón "Perfil" inferior) -->
+  <!-- Drawer lateral para hamburguesa (tablet) y perfil (móvil) -->
   <div class="nav-overlay" id="nav-overlay">
-    <div class="nav-links-movil" id="nav-links-movil" onclick="event.stopPropagation()" style="justify-content: flex-end;">
+    <div class="nav-links-movil" id="nav-links-movil" onclick="event.stopPropagation()">
+      <div>
+        <div class="nav-links-movil-header">
+          <span class="logo-text">Frut<span>IA</span></span>
+        </div>
+        <div class="nav-links-movil-secciones">
+          <a href="#" class="nav-link active" data-section="analizador">📷 Analizar</a>
+          <a href="#" class="nav-link" data-section="historial">📋 Historial</a>
+          <a href="#" class="nav-link" data-section="dashboard">📊 Dashboard</a>
+          <a href="#" class="nav-link" data-section="futuro">🔮 Futuro</a>
+          <a href="#" class="nav-link" data-section="perfil">👤 Perfil</a>
+          {% if rol == "admin" %}<a href="#" class="nav-link nav-admin" data-section="admin">⚙️ Admin</a>{% endif %}
+        </div>
+      </div>
       <div class="nav-usuario-movil-info">
         <button class="avatar-btn avatar-btn-movil" id="avatar-btn-movil" type="button" title="Cambiar foto de perfil">
           {% if avatar %}
@@ -98,7 +113,6 @@
           {% else %}
             <span class="avatar-iniciales">{{ usuario[0]|upper }}</span>
           {% endif %}
-          <span class="avatar-editar">✎</span>
         </button>
         <span class="usuario-nombre">{{ usuario }}{% if rol == "admin" %} <span class="admin-badge">Admin</span>{% endif %}</span>
         <button class="btn-logout" id="btn-logout-movil">

@@ -941,7 +941,7 @@ function renderHistorial(reiniciarPagina = false) {
   const itemsAMostrar = historialFiltradoCache.slice(0, historialPaginaActual * HISTORIAL_POR_PAGINA);
 
   if (!itemsAMostrar.length) { 
-    lista.innerHTML = '<div class="cargando">No se encontraron análisis.</div>'; 
+    lista.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><h3>Sin análisis aún</h3><p>No se encontraron análisis registrados. Analizá un cultivo para verlo aquí.</p></div>'; 
     return; 
   }
 
@@ -1132,12 +1132,12 @@ async function cargarHistorial() {
     window.historialData = data;
     
     if (!data.length) { 
-      lista.innerHTML = '<div class="cargando">No hay análisis guardados aún.</div>'; 
+      lista.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><h3>Aún no hay análisis</h3><p>No hay análisis guardados aún. Analizá un cultivo y los resultados aparecerán acá.</p></div>'; 
       return; 
     }
 
     renderHistorial(true);
-  } catch { lista.innerHTML = '<div class="cargando">Error al cargar historial.</div>'; }
+  } catch { lista.innerHTML = '<div class="empty-state is-error"><div class="empty-state-icon" >⚠️</div><h3>Error</h3><p>Error al cargar historial.</p></div>'; }
 }
 
 // ── Dashboard ────────────────────────────────────────────────────
@@ -1186,7 +1186,7 @@ async function cargarDashboard() {
         options: { ...baseOpts, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { stepSize: 1 }, grid: { display: false } }, y: { grid: { display: false } } } }
       });
     } else {
-      document.getElementById('chart-enfermedades').parentElement.innerHTML = '<p class="cargando">Sin enfermedades registradas aún.</p>';
+      document.getElementById('chart-enfermedades').parentElement.innerHTML = '<div class="empty-state is-chart"><div class="empty-state-icon">🩺</div><h3>Sin enfermedades</h3><p>Aún no hay enfermedades registradas.</p></div>';
     }
 
     // 3. Cultivos — Top 5 + "Otros" (patrón estándar de dashboards escalables)
@@ -1238,7 +1238,7 @@ async function cargarDashboard() {
         }
       });
     } else {
-      document.getElementById('chart-cultivos').parentElement.innerHTML = '<p class="cargando">Sin datos aún.</p>';
+      document.getElementById('chart-cultivos').parentElement.innerHTML = '<div class="empty-state is-chart"><div class="empty-state-icon">🌱</div><h3>Sin cultivos</h3><p>Aún no hay datos de cultivos.</p></div>';
     }
 
     // 4. Actividad semanal
@@ -1391,7 +1391,7 @@ async function cargarAdminStats() {
         <div class="admin-stat-label">Sanos / Con posibles enfermedades</div>
       </div>
     `;
-  } catch { grid.innerHTML = '<div class="cargando">Error al cargar estadísticas.</div>'; }
+  } catch { grid.innerHTML = '<div class="empty-state is-error"><div class="empty-state-icon" >⚠️</div><h3>Error</h3><p>Error al cargar estadísticas.</p></div>'; }
 }
 
 async function cargarAdminUsuarios() {
@@ -1407,7 +1407,7 @@ async function cargarAdminUsuarios() {
     const res   = await fetch('/admin/usuarios');
     adminUsersCache = await res.json();
     renderUsuariosFiltrados();
-  } catch { lista.innerHTML = '<div class="cargando">Error al cargar usuarios.</div>'; }
+  } catch { lista.innerHTML = '<div class="empty-state is-error"><div class="empty-state-icon" >⚠️</div><h3>Error</h3><p>Error al cargar usuarios.</p></div>'; }
 }
 
 function renderUsuariosFiltrados() {
@@ -1437,7 +1437,7 @@ function renderUsuariosFiltrados() {
   });
 
   if (filtrados.length === 0) {
-    lista.innerHTML = '<div class="cargando">No se encontraron usuarios.</div>';
+    lista.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><h3>Sin resultados</h3><p>No se encontraron usuarios con esos filtros.</p></div>';
     return;
   }
 
@@ -1504,7 +1504,7 @@ async function abrirDetallesUsuario(event, uid) {
     const inicial = u.nombre.charAt(0).toUpperCase();
     
     const historialHtml = data.historial.length === 0 
-      ? '<div class="modal-historial-vacio">Este usuario aún no ha realizado ningún análisis.</div>'
+      ? '<div class="empty-state"><div class="empty-state-icon">📋</div><h3>Sin análisis</h3><p>Este usuario aún no ha realizado ningún análisis.</p></div>'
       : '<div class="modal-historial-lista">' + data.historial.map(item => {
           const enf = item.enfermedades.length ? `⚠️ ${item.enfermedades[0].nombre}` : '✅ Sano';
           const fecha = formatearFecha(item.fecha);
@@ -1534,7 +1534,7 @@ async function abrirDetallesUsuario(event, uid) {
       ${historialHtml}
     `;
   } catch(e) {
-    cuerpo.innerHTML = '<div class="cargando">No se pudo cargar la información del usuario.</div>';
+    cuerpo.innerHTML = '<div class="empty-state is-error"><div class="empty-state-icon" >⚠️</div><h3>Error</h3><p>No se pudo cargar la información del usuario.</p></div>';
   }
 }
 
@@ -1696,10 +1696,10 @@ async function cargarPerfil() {
   cont.innerHTML = '<div class="cargando">Cargando perfil...</div>';
   try {
     const res = await fetch('/perfil');
-    if (!res.ok) { cont.innerHTML = '<div class="cargando">Error al cargar perfil.</div>'; return; }
+    if (!res.ok) { cont.innerHTML = '<div class="empty-state is-error"><div class="empty-state-icon" >⚠️</div><h3>Error</h3><p>Error al cargar perfil.</p></div>'; return; }
     perfilData = await res.json();
     renderPerfil(perfilData);
-  } catch { cont.innerHTML = '<div class="cargando">Error de conexión.</div>'; }
+  } catch { cont.innerHTML = '<div class="empty-state is-error"><div class="empty-state-icon" >⚠️</div><h3>Error</h3><p>Error de conexión.</p></div>'; }
 }
 
 function renderPerfil(p) {

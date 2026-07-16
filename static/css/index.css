@@ -148,6 +148,12 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 .nav-usuario{display:flex;align-items:center;gap:.85rem;flex-shrink:0;}
 .usuario-nombre{color:rgba(255,255,255,.75);font-size:.85rem;white-space:nowrap;}
 
+.nav-toggle{display:none;flex-direction:column;justify-content:center;align-items:center;gap:5px;width:36px;height:36px;background:none;border:none;cursor:pointer;flex-shrink:0;padding:0;}
+.nav-toggle span{display:block;width:20px;height:2.5px;background:#fff;border-radius:2px;transition:transform .25s,opacity .25s;}
+.nav-toggle.abierto span:nth-child(1){transform:translateY(7.5px) rotate(45deg);}
+.nav-toggle.abierto span:nth-child(2){opacity:0;}
+.nav-toggle.abierto span:nth-child(3){transform:translateY(-7.5px) rotate(-45deg);}
+
 /* ── Avatar de perfil ──────────────────────────────────────────────
    Siempre circular. Si el usuario no tiene foto, muestra sus iniciales
    sobre un fondo de la paleta de marca (estilo GitHub/Discord/Slack).
@@ -432,7 +438,18 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 .futuro-badge{align-self:flex-start;background:rgba(82,183,136,.1);color:var(--verde-medio);font-size:.72rem;font-weight:600;padding:.2rem .7rem;border-radius:99px;border:1px solid rgba(82,183,136,.2);}
 .futuro-nota{background:#FFF7ED;border-left:3px solid var(--warning);border-radius:8px;padding:1rem 1.25rem;display:flex;gap:.75rem;align-items:flex-start;font-size:.85rem;color:#92400E;line-height:1.6;}
 
-.cargando{color:var(--texto-suave);font-size:.9rem;padding:2rem;text-align:center;}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.6rem;padding:3rem 1.5rem;background:#fff;border:2px dashed var(--gris-suave);border-radius:16px;margin:2rem auto;max-width:400px;color:var(--texto-suave);grid-column:1/-1;}
+.empty-state-icon{font-size:2.8rem;line-height:1;}
+.empty-state h3{font-family:var(--font-sans);font-size:1.05rem;color:var(--verde-profundo);font-weight:700;}
+.empty-state p{font-size:.85rem;max-width:260px;color:var(--texto-suave);line-height:1.5;}
+.empty-state.is-error{border-color:#fca5a5;background:#fff5f5;}
+.empty-state.is-error .empty-state-icon{font-size:2rem;}
+.empty-state.is-error h3{color:#991b1b;}
+.empty-state.is-error p{color:#991b1b;}
+.empty-state.is-chart{border:none;background:transparent;padding:2rem 1rem;}
+.cargando{display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:2.5rem;text-align:center;color:var(--texto-suave);font-size:.9rem;}
+.cargando::before{content:'';width:26px;height:26px;border:3px solid var(--gris-suave);border-top-color:var(--verde-medio);border-radius:50%;animation:cargaSpin .7s linear infinite;display:block;}
+@keyframes cargaSpin{to{transform:rotate(360deg)}}
 
 @media(max-width:768px){
   .analizador-grid { grid-template-columns:1fr; }
@@ -451,22 +468,20 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
   .futuro-grid{grid-template-columns:1fr;}
   .status-bar{gap:.75rem;}
 
-  /* En móvil se oculta la barra horizontal de escritorio y el nombre de
-     usuario del navbar principal (ambos viven dentro del drawer) */
+}
+
+/* ── Tablet (641-768px): hamburguesa, oculta nav desktop ── */
+@media(min-width:641px) and (max-width:768px){
+  .nav-links-desktop{display:none;}
+  .navbar > .nav-usuario{display:none;}
+  .nav-toggle{display:flex;}
+}
+
+/* ── Tablet + Móvil (≤768px): overlay lateral ── */
+@media(max-width:768px){
   .nav-links-desktop{display:none;}
   .navbar > .nav-usuario{display:none;}
 
-  .nav-toggle{
-    display: none; /* Reemplazado por nav-bottom-mobile */
-  }
-  .nav-toggle span{display:block;width:16px;height:2px;background:#fff;border-radius:2px;margin:0 auto;transition:transform .25s,opacity .25s;}
-  .nav-toggle.abierto span:nth-child(1){transform:translateY(7px) rotate(45deg);}
-  .nav-toggle.abierto span:nth-child(2){opacity:0;}
-  .nav-toggle.abierto span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
-
-  /* El overlay cubre toda la pantalla y CONTIENE al drawer — al estar
-     anidados comparten stacking context, así que no hay forma de que el
-     overlay quede "encima" del drawer y bloquee los clics. */
   .nav-overlay{
     display:flex;
     justify-content:flex-end;
@@ -485,38 +500,61 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
     gap:.3rem;
     width:min(80vw,300px);
     height:100%;
-    background:var(--verde-profundo);
-    padding:4.5rem 1.25rem 1.5rem;
-    box-shadow:-8px 0 28px rgba(0,0,0,.3);
+    background:#fff;
+    padding:0;
+    box-shadow:-8px 0 28px rgba(0,0,0,.15);
     transform:translateX(100%);
-    transition:transform .28s ease;
+    transition:transform .3s cubic-bezier(.22,.68,0,1);
     overflow-y:auto;
+    justify-content:space-between;
+    border-left:3px solid var(--verde-claro);
   }
   .nav-overlay.visible .nav-links-movil{transform:translateX(0);}
 
-  /* Texto del menú siempre con buen contraste: en touch no existe :hover,
-     así que el color base debe ser legible desde el primer momento. */
-  .nav-links-movil .nav-link{
-    color:rgba(255,255,255,.92);
-    padding:.85rem 1rem;
-    font-size:.95rem;
-    border-radius:10px;
+  .nav-links-movil-header{
+    background:var(--verde-profundo);
+    padding:1.5rem 1.25rem .75rem;
+    border-bottom:1px solid rgba(255,255,255,.1);
   }
-  .nav-links-movil .nav-link:active{background:rgba(255,255,255,.15);}
-  .nav-links-movil .nav-link.active{color:#fff;background:var(--verde-claro);}
+  .nav-links-movil-header .logo-text{color:#fff;font-size:1.2rem;}
+  .nav-links-movil-header .logo-text span{color:var(--tierra);}
+
+  .nav-links-movil-secciones{display:flex;flex-direction:column;gap:.15rem;padding:.5rem 1rem 1rem;}
+  .nav-links-movil .nav-link{
+    color:var(--texto);
+    padding:.75rem .85rem;
+    font-size:.9rem;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    gap:.6rem;
+    transition:background .2s,color .2s;
+    border:1px solid transparent;
+  }
+  .nav-links-movil .nav-link:hover{background:var(--crema);border-color:var(--gris-suave);}
+  .nav-links-movil .nav-link:active{background:var(--gris-suave);}
+  .nav-links-movil .nav-link.active{color:var(--verde-profundo);background:rgba(82,183,136,.1);font-weight:700;border-color:rgba(82,183,136,.3);}
 
   .nav-usuario-movil-info{
     display:flex;
-    flex-direction:column;
-    align-items:flex-start;
+    flex-direction:row;
+    align-items:center;
     gap:.7rem;
     width:100%;
-    padding-top:1.1rem;
-    margin-top:.6rem;
-    border-top:1px solid rgba(255,255,255,.15);
+    padding:1rem 1.25rem;
+    border-top:1px solid var(--gris-suave);
+    background:var(--crema);
   }
-  .nav-usuario-movil-info .usuario-nombre{display:block;color:rgba(255,255,255,.85);font-size:.85rem;}
-  .nav-usuario-movil-info .btn-logout{width:100%;justify-content:center;}
+  .nav-usuario-movil-info .usuario-nombre{display:block;color:var(--texto);font-size:.85rem;font-weight:600;flex:1;}
+  .nav-usuario-movil-info .btn-logout{width:auto;padding:.4rem .8rem;border-radius:8px;background:transparent;color:var(--texto-suave);border:1px solid var(--gris-suave);font-size:.78rem;justify-content:center;}
+  .nav-usuario-movil-info .btn-logout:hover{background:var(--gris-suave);}
+}
+
+@media(max-width:640px){
+  .nav-links-desktop{display:none;}
+  .navbar > .nav-usuario{display:none;}
+
+  .nav-toggle{display:none;}
 
   /* --- NAV BOTTOM MOBILE --- */
   .nav-bottom-mobile {
@@ -599,7 +637,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
   }
 }
 
-@media(min-width:769px){
+@media(min-width:641px){
   .nav-bottom-mobile { display: none !important; }
 }
 
@@ -793,14 +831,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
   font-size: 0.85rem;
   color: var(--texto-suave);
 }
-.modal-historial-vacio {
-  text-align: center;
-  color: var(--texto-suave);
-  padding: 2rem;
-  background: var(--crema);
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
+
 .modal-historial-lista {
   display: flex;
   flex-direction: column;
