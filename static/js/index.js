@@ -154,7 +154,7 @@ function escaparHtml(text) {
         document.querySelectorAll('.nav-link, .nav-link-movil').forEach(l => l.classList.remove('active'));
         document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
         document.getElementById('sec-analizador').classList.add('activa');
-        mostrarResultado(data);
+        mostrarResultado(data, true);
       }
     } catch (e) {}
   }
@@ -250,7 +250,7 @@ document.querySelectorAll('.nav-link, .nav-link-movil[data-section]').forEach(li
     document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
     document.getElementById(`sec-${sec}`).classList.add('activa');
     if (sec === 'analizador' && window.ultimoDiagnosticoData && document.getElementById('resultado-contenido').style.display !== 'flex') {
-      mostrarResultado(window.ultimoDiagnosticoData);
+      mostrarResultado(window.ultimoDiagnosticoData, true);
     }
     if (sec === 'historial') cargarHistorial();
     if (sec === 'dashboard') cargarDashboard();
@@ -262,6 +262,10 @@ document.querySelectorAll('.nav-link, .nav-link-movil[data-section]').forEach(li
 
 // ── Logout ───────────────────────────────────────────────────────
 async function cerrarSesion() {
+  localStorage.removeItem('frutia_ultimo_analisis');
+  localStorage.removeItem('frutia_chat');
+  localStorage.removeItem('frutia_chat_count');
+  localStorage.removeItem('frutia_seccion_actual');
   await fetch('/logout');
   window.location.href = '/';
 }
@@ -475,11 +479,38 @@ async function analizarImagen(b64) {
 }
 
 // ── Mostrar resultado ────────────────────────────────────────────
-function mostrarResultado(data) {
+function guardarChat() {
+  try {
+    localStorage.setItem('frutia_chat', JSON.stringify(window.chatHistorial));
+    localStorage.setItem('frutia_chat_count', window.chatPregCount || 0);
+  } catch (e) {}
+}
+
+function mostrarResultado(data, restaurar) {
   window.ultimoDiagnosticoData = data;
-  window.chatHistorial = [];
   try { localStorage.setItem('frutia_ultimo_analisis', JSON.stringify(data)); } catch (e) {}
-  document.getElementById('chat-mensajes').innerHTML = '';
+  const contMsg = document.getElementById('chat-mensajes');
+  if (restaurar) {
+    try {
+      const chatGuardado = localStorage.getItem('frutia_chat');
+      window.chatHistorial = chatGuardado ? JSON.parse(chatGuardado).slice(-15) : [];
+      window.chatPregCount = parseInt(localStorage.getItem('frutia_chat_count') || '0', 10);
+      contMsg.innerHTML = '';
+      window.chatHistorial.forEach(m => chatAgregarBurbuja(m.texto, m.rol === 'user' ? 'usuario' : 'ia'));
+      if (window.chatPregCount >= 15) {
+        chatAgregarBurbuja('⚠️ Has alcanzado el límite de 15 preguntas para esta conversación. Iniciá un **nuevo análisis** para seguir consultando.', 'ia');
+        document.getElementById('chat-input').disabled = true;
+        document.getElementById('chat-btn-enviar').disabled = true;
+        document.getElementById('chat-sugerencias').innerHTML = '';
+      }
+    } catch (e) { window.chatHistorial = []; window.chatPregCount = 0; contMsg.innerHTML = ''; }
+  } else {
+    window.chatHistorial = [];
+    window.chatPregCount = 0;
+    contMsg.innerHTML = '';
+    guardarChat();
+  }
+  mostrarSugerenciasChat(data);
   ocultarTodos();
   document.getElementById('resultado-contenido').style.display = 'flex';
 
@@ -589,7 +620,8 @@ function mostrarResultado(data) {
     return `
       <a href="${searchUrl}" target="_blank" class="fuente-link" title="Buscar documento en Google">
         <span class="fuente-inst">${f.institucion}</span>
-        <span class="fuente-titulo">🔍 ${f.titulo}</span>
+        <span class="fuente-titulo">${f.titulo}</span>
+        <span class="fuente-search">🔍</span>
       </a>
     `;
   }).join('');
@@ -597,6 +629,111 @@ function mostrarResultado(data) {
 
 // ── Chat de Seguimiento ──────────────────────────────────────────
 window.chatHistorial = [];
+window.chatPregCount = 0;
+
+function mostrarSugerenciasChat(data) {
+  const cont = document.getElementById('chat-sugerencias');
+  if (!cont) return;
+  if (!data || !data.cultivo) { cont.innerHTML = ''; return; }
+  const cultivo = data.cultivo.toLowerCase();
+  const enfNombres = (data.enfermedades || []).map(e => (e.nombre || '').toLowerCase());
+  const tieneEnf = enfNombres.length > 0 && enfNombres[0] !== 'sano' && enfNombres[0] !== '';
+  const base = [
+    `¿Cada cuánto debo regar ${cultivo}?`,
+    `¿Qué plagas atacan a ${cultivo}?`,
+    `¿Cuánto sol necesita ${cultivo} al día?`
+  ];
+  const enf = tieneEnf ? [
+    `¿El tratamiento es seguro para consumo humano?`,
+    `¿Cómo prevenir esta enfermedad en el futuro?`,
+    `¿Qué condiciones climáticas favorecen esta enfermedad?`
+  ] : [];
+  const limiteAlcanzado = window.chatPregCount >= 15;
+  const todas = [...base, ...enf].slice(0, 3);
+  cont.innerHTML = todas.map(q =>
+    `<span class="chat-chip${limiteAlcanzado ? ' chip-disabled' : ''}" onclick="${limiteAlcanzado ? '' : "enviarSugerencia('" + q.replace(/'/g, "\\'") + "')"}">${q}</span>`
+  ).join('');
+}
+
+function enviarSugerencia(pregunta) {
+  if (window.chatOcupado) return;
+  document.getElementById('chat-input').value = pregunta;
+  enviarChatMensaje();
+}
+
+function generarSugerenciasDinamicas() {
+  const cont = document.getElementById('chat-sugerencias');
+  if (!cont || !window.ultimoDiagnosticoData) return;
+  const cultivo = (window.ultimoDiagnosticoData.cultivo || '').toLowerCase();
+  const hist = window.chatHistorial || [];
+  const pregHechas = hist.filter(m => m.rol === 'user').map(m => m.texto.toLowerCase());
+  const ultimoUser = pregHechas.length ? pregHechas[pregHechas.length - 1] : '';
+  const ultimoAI = hist.length && hist[hist.length - 1].rol === 'assistant'
+    ? hist[hist.length - 1].texto.toLowerCase() : '';
+  const contexto = ultimoUser + ' ' + ultimoAI;
+
+  const temas = [
+    { id: 'riego', pal: ['riego','agua','regar','humedad','sequía','mojar','secado'],
+      qs: [`¿Cómo saber si ${cultivo} necesita agua?`,`¿El exceso de agua daña ${cultivo}?`,`¿Cada cuánto regar en temporada de lluvia?`] },
+    { id: 'plaga', pal: ['plaga','plagas','insecto','bicho','pesticida','insecticida','oruga','ácaro'],
+      qs: [`¿Cómo controlar plagas en ${cultivo} sin químicos?`,`¿Cada cuánto aplicar insecticida?`,`¿Qué señales indican una plaga?`] },
+    { id: 'sol', pal: ['sol','luz','sombra','solares','fotosíntesis'],
+      qs: [`¿${cultivo} necesita sol directo o media sombra?`,`¿Qué pasa si ${cultivo} recibe poca luz?`] },
+    { id: 'suelo', pal: ['suelo','tierra','abono','fertilizante','nutrientes','ph','sustrato'],
+      qs: [`¿Qué abono recomiendas para ${cultivo}?`,`¿Cada cuánto fertilizar ${cultivo}?`,`¿Cómo mejorar el suelo?`] },
+    { id: 'enfermedad', pal: ['enfermedad','enfermedades','hongo','virus','bacterias','prevenir','síntomas'],
+      qs: [`¿Cómo prevenir enfermedades en ${cultivo}?`,`¿Qué hacer si la enfermedad avanza?`,`¿El tratamiento recomendado es suficiente?`] },
+    { id: 'tratamiento', pal: ['tratamiento','fungicida','producto','aplicar','dosis','químico','orgánico'],
+      qs: [`¿Cada cuánto aplicar el tratamiento?`,`¿Cuánto tiempo esperar después del tratamiento?`,`¿Se puede mezclar con otros productos?`] },
+    { id: 'cosecha', pal: ['cosecha','cosechar','maduración','maduro','listo','recoger'],
+      qs: [`¿Cómo saber si está listo para cosechar?`,`¿Se puede cosechar antes de tiempo?`,`¿Cómo almacenar ${cultivo} después de cosechar?`] },
+    { id: 'poda', pal: ['poda','podar','ramas','hojas','tallo'],
+      qs: [`¿Cómo podar ${cultivo} sin dañarlo?`,`¿Cuándo es mejor podar ${cultivo}?`] },
+    { id: 'clima', pal: ['clima','temperatura','lluvia','helada','calor','frio','estación'],
+      qs: [`¿${cultivo} resiste heladas?`,`¿Qué temperatura daña a ${cultivo}?`] },
+    { id: 'consumo', pal: ['consumo','comer','alimento','seguro','tóxico','lavar','cocinar'],
+      qs: [`¿Cómo lavar ${cultivo} antes de consumir?`,`¿Cuánto esperar para consumir tras el tratamiento?`] }
+  ];
+
+  const bancoGeneral = [
+    `¿Qué cuidados necesita ${cultivo} a diario?`,
+    `¿Cada cuánto debo regar ${cultivo}?`,
+    `¿Qué plagas atacan a ${cultivo}?`,
+    `¿Cuándo se cosecha ${cultivo}?`,
+    `¿${cultivo} necesita mucho sol?`,
+    `¿Qué tipo de suelo es mejor para ${cultivo}?`,
+    `¿${cultivo} se da bien en maceta?`,
+    `¿Cuánto tiempo vive ${cultivo}?`,
+    `¿Se puede plantar ${cultivo} en cualquier época?`,
+    `¿El ${cultivo} necesita poda frecuente?`
+  ];
+
+  // Detectar temas del último mensaje
+  const temasDetectados = temas.filter(t => t.pal.some(p => contexto.includes(p))).map(t => t.id);
+  let sugerencias = [];
+
+  // Priorizar temas detectados (hasta 2 temas)
+  for (const id of temasDetectados) {
+    const t = temas.find(x => x.id === id);
+    if (!t) continue;
+    sugerencias.push(...t.qs.filter(q => !pregHechas.some(p => q.toLowerCase().slice(0,25) === p.slice(0,25))));
+    if (sugerencias.length >= 4) break;
+  }
+
+  // Si faltan, llenar con banco general (excluyendo preguntas ya hechas)
+  if (sugerencias.length < 3) {
+    const restantes = bancoGeneral.filter(q =>
+      !pregHechas.some(p => q.toLowerCase().slice(0,25) === p.slice(0,25)) &&
+      !sugerencias.includes(q)
+    );
+    sugerencias.push(...restantes);
+  }
+
+  const limiteAlcanzado = window.chatPregCount >= 15;
+  cont.innerHTML = sugerencias.slice(0, 3).map(q =>
+    `<span class="chat-chip${limiteAlcanzado ? ' chip-disabled' : ''}" onclick="${limiteAlcanzado ? '' : "enviarSugerencia('" + q.replace(/'/g, "\\'") + "')"}">${q}</span>`
+  ).join('');
+}
 
 function chatAgregarBurbuja(texto, tipo) {
   const cont = document.getElementById('chat-mensajes');
@@ -613,6 +750,7 @@ function chatAgregarBurbuja(texto, tipo) {
 }
 
 async function enviarChatMensaje() {
+  if (window.chatOcupado) return;
   const input  = document.getElementById('chat-input');
   const btn    = document.getElementById('chat-btn-enviar');
   const pregunta = input.value.trim();
@@ -620,9 +758,23 @@ async function enviarChatMensaje() {
   if (!pregunta) return;
   if (!window.ultimoDiagnosticoData) return;
 
+  if (window.chatPregCount >= 15) {
+    chatAgregarBurbuja('⚠️ Has alcanzado el límite de 15 preguntas para esta conversación. Iniciá un **nuevo análisis** para seguir consultando.', 'ia');
+    document.getElementById('chat-input').disabled = true;
+    document.getElementById('chat-btn-enviar').disabled = true;
+    document.getElementById('chat-sugerencias').innerHTML = '';
+    mostrarToast('warning', 'Límite alcanzado', 'Llegaste a las 15 preguntas. Iniciá un nuevo análisis para seguir.', 6000);
+    return;
+  }
+
+  window.chatOcupado = true;
+
   // Mostrar mensaje del usuario
   chatAgregarBurbuja(pregunta, 'usuario');
   window.chatHistorial.push({ rol: 'user', texto: pregunta });
+  window.chatHistorial = window.chatHistorial.slice(-15);
+  window.chatPregCount++;
+  guardarChat();
   input.value = '';
   input.disabled = true;
   btn.disabled   = true;
@@ -650,6 +802,17 @@ async function enviarChatMensaje() {
     if (data.respuesta) {
       chatAgregarBurbuja(data.respuesta, 'ia');
       window.chatHistorial.push({ rol: 'assistant', texto: data.respuesta });
+      window.chatHistorial = window.chatHistorial.slice(-15);
+      guardarChat();
+      if (window.chatPregCount >= 15) {
+        chatAgregarBurbuja('⚠️ Has alcanzado el límite de **15 preguntas** para esta conversación. Iniciá un **nuevo análisis** para seguir consultando.', 'ia');
+        document.getElementById('chat-input').disabled = true;
+        document.getElementById('chat-btn-enviar').disabled = true;
+        document.getElementById('chat-sugerencias').innerHTML = '';
+        mostrarToast('warning', 'Límite alcanzado', 'Llegaste a las 15 preguntas. Iniciá un nuevo análisis para seguir.', 6000);
+      } else {
+        generarSugerenciasDinamicas();
+      }
     } else {
       chatAgregarBurbuja('Hubo un problema al obtener la respuesta. Intenta de nuevo.', 'ia');
     }
@@ -660,6 +823,7 @@ async function enviarChatMensaje() {
     input.disabled = false;
     btn.disabled   = false;
     input.focus();
+    window.chatOcupado = false;
   }
 }
 
@@ -1087,7 +1251,7 @@ function abrirDetalleHistorial(id) {
       </button>
       <div style="display:flex; gap:0.8rem;">
         <button onclick="cerrarModalHistorial()" style="padding:0.6rem 1.2rem; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-family:var(--font-sans); color:#334155; font-size:0.9rem;">Cerrar</button>
-        <a href="/reporte-pdf/${data.id}" target="_blank" style="padding:0.6rem 1.2rem; background:var(--verde-profundo); color:white; border-radius:8px; text-decoration:none; font-family:var(--font-sans); font-weight:600; font-size:0.9rem; display:flex; align-items:center; gap:0.4rem;">📄 Exportar PDF</a>
+        <a href="/reporte-pdf/${data.id}" target="_blank" class="btn-secundario btn-pdf" style="text-decoration:none;">📄 Exportar PDF</a>
       </div>
     </div>
   `;
