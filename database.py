@@ -102,6 +102,14 @@ def inicializar_db():
     except:
         pass
 
+    try:
+        cur.execute("ALTER TABLE usuarios ADD COLUMN fecha_registro TEXT")
+    except:
+        pass
+
+    # Backfill: usuarios creados antes de existir la columna (p. ej. semilla)
+    cur.execute("UPDATE usuarios SET fecha_registro = CURRENT_TIMESTAMP WHERE fecha_registro IS NULL")
+
     cur.execute("SELECT COUNT(*) FROM usuarios")
     if cur.fetchone()[0] == 0:
         cur.executemany("INSERT INTO usuarios (nombre, dni, rol) VALUES (?, ?, ?)", [
@@ -370,7 +378,7 @@ def agregar_usuario(nombre, dni, rol="agricultor", region=None, localidad=None):
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("INSERT INTO usuarios (nombre, dni, rol, region, localidad, idioma) VALUES (?, ?, ?, ?, ?, ?)", (nombre, dni, rol, region, localidad, 'es'))
+        cur.execute("INSERT INTO usuarios (nombre, dni, rol, region, localidad, idioma, fecha_registro) VALUES (?, ?, ?, ?, ?, ?, ?)", (nombre, dni, rol, region, localidad, 'es', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         conn.commit()
         uid = cur.lastrowid
         conn.close()
@@ -461,7 +469,7 @@ def obtener_perfil(usuario_id):
     cur.execute("""
         SELECT id, nombre, dni, rol, region, localidad, avatar_path, idioma,
                (SELECT COUNT(*) FROM analisis WHERE usuario_id = usuarios.id) as total_analisis,
-               (SELECT fecha FROM analisis WHERE usuario_id = usuarios.id ORDER BY fecha ASC LIMIT 1) as fecha_registro
+               fecha_registro
         FROM usuarios WHERE id = ?
     """, (usuario_id,))
     row = cur.fetchone()
