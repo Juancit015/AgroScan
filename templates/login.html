@@ -12,13 +12,15 @@
 
 <div class="wrapper">
 
+  <!-- Selector de idioma flotante -->
+  <div class="lang-selector" id="lang-selector">
+    <button class="lang-btn lang-btn-es active" data-lang="es" onclick="cambiarIdioma('es')">🇪🇸 ES</button>
+    <button class="lang-btn lang-btn-qu" data-lang="qu" onclick="cambiarIdioma('qu')">🇵🇪 QU</button>
+  </div>
+
   <!-- Panel izquierdo -->
   <div class="panel-izq">
     <div class="logo">
-      <!-- Logo oficial: reemplaza static/assets/logo.png por tu archivo.
-           Si el archivo no existe (o falla al cargar), onerror oculta la
-           imagen y muestra automáticamente el emoji de respaldo — el
-           diseño nunca se rompe, con o sin logo. -->
       <img src="{{ url_for('static', filename='assets/logo.png') }}"
            alt="Logo FrutIA"
            class="logo-img"
@@ -27,8 +29,8 @@
       <span class="logo-text">Frut<span>IA</span></span>
     </div>
     <div class="panel-izq-contenido">
-      <h2>Diagnóstico <em>inteligente</em> para tus cultivos</h2>
-      <p>
+      <h2 data-i18n="panel_titulo">Diagnóstico <em>inteligente</em> para tus cultivos</h2>
+      <p data-i18n="panel_desc">
         Fotografía un cultivo y la IA detecta enfermedades, evalúa la madurez
         y recomienda el tratamiento adecuado con fuentes confiables.
       </p>
@@ -40,7 +42,7 @@
         <span class="tag">📊 Dashboard</span>
       </div>
     </div>
-    <p class="footer-izq">Desarrollado en Paijan, La Libertad, Perú</p>
+    <p class="footer-izq" data-i18n="footer">Desarrollado en Paijan, La Libertad, Perú</p>
   </div>
 
   <!-- Panel derecho -->
@@ -51,11 +53,11 @@
         <div class="logo-icon" style="display:none; font-size:1.5rem; width:35px; height:35px;">🌱</div>
         <span class="logo-text">Frut<span>IA</span></span>
       </div>
-      <h1>Bienvenido</h1>
-      <p class="subtitulo">Ingresa tu clave para acceder al sistema</p>
+      <h1 data-i18n="login_titulo">Bienvenido</h1>
+      <p class="subtitulo" data-i18n="login_sub">Ingresa tu clave para acceder al sistema</p>
 
       <div class="campo">
-        <label for="dni">Clave de acceso</label>
+        <label for="dni" data-i18n="login_label">Clave de acceso</label>
         <div class="input-wrap">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -74,16 +76,16 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
           </svg>
-          <span id="error-texto">Clave incorrecta</span>
+          <span id="error-texto" data-i18n="login_error">Clave incorrecta</span>
         </div>
       </div>
 
       <button class="btn-ingresar" id="btn-login">
         <div class="spinner" id="spinner"></div>
-        <span id="btn-texto">Ingresar al sistema</span>
+        <span id="btn-texto" data-i18n="login_btn">Ingresar al sistema</span>
       </button>
 
-      <p class="toggle-form">¿No estás registrado? <a href="#" id="link-registro">¡Regístrate!</a></p>
+      <p class="toggle-form"><span data-i18n="login_toggle">¿No estás registrado?</span> <a href="#" id="link-registro" data-i18n="login_toggle_link">¡Regístrate!</a></p>
     </div>
 
     <!-- Panel de Registro -->
@@ -93,36 +95,36 @@
         <div class="logo-icon" style="display:none; font-size:1.5rem; width:35px; height:35px;">🌱</div>
         <span class="logo-text">Frut<span>IA</span></span>
       </div>
-      <h1>Crear cuenta</h1>
-      <p class="subtitulo">Crea tu cuenta de agricultor</p>
+      <h1 data-i18n="reg_titulo">Crear cuenta</h1>
+      <p class="subtitulo" data-i18n="reg_sub">Crea tu cuenta de agricultor</p>
 
       <div class="campo">
-        <label for="reg-nombre">Nombre y Apellido</label>
+        <label for="reg-nombre" data-i18n="reg_label_nombre">Nombre y Apellido</label>
         <div class="input-wrap">
           <input type="text" id="reg-nombre" placeholder="Ej. Juan Pérez" maxlength="30" autocomplete="off" />
         </div>
       </div>
       
       <div class="campo">
-        <label for="reg-region">Región</label>
+        <label for="reg-region" data-i18n="reg_label_region">Región</label>
         <div class="input-wrap">
           <select id="reg-region" class="select-input">
-            <option value="">Selecciona tu región...</option>
+            <option value="" data-i18n="reg_region_placeholder">Selecciona tu región...</option>
           </select>
         </div>
       </div>
 
       <div class="campo">
-        <label for="reg-localidad">Localidad</label>
+        <label for="reg-localidad" data-i18n="reg_label_localidad">Localidad</label>
         <div class="input-wrap">
           <select id="reg-localidad" class="select-input" disabled>
-            <option value="">Primero selecciona región</option>
+            <option value="" data-i18n="reg_localidad_placeholder">Primero selecciona región</option>
           </select>
         </div>
       </div>
 
       <div class="campo">
-        <label for="reg-dni">Clave de acceso (8 dígitos)</label>
+        <label for="reg-dni" data-i18n="reg_label_clave">Clave de acceso (8 dígitos)</label>
         <div class="input-wrap">
           <input type="text" id="reg-dni" placeholder="••••••••" maxlength="8" autocomplete="off" inputmode="numeric" />
         </div>
@@ -136,10 +138,10 @@
 
       <button class="btn-ingresar" id="btn-registrar">
         <div class="spinner" id="reg-spinner"></div>
-        <span id="reg-btn-texto">Crear cuenta</span>
+        <span id="reg-btn-texto" data-i18n="reg_btn">Crear cuenta</span>
       </button>
 
-      <p class="toggle-form">¿Ya tienes cuenta? <a href="#" id="link-login">Inicia sesión</a></p>
+      <p class="toggle-form"><span data-i18n="reg_toggle">¿Ya tienes cuenta?</span> <a href="#" id="link-login" data-i18n="reg_toggle_link">Inicia sesión</a></p>
     </div>
   </div>
 

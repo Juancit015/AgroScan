@@ -11,6 +11,12 @@ cada versión agrupa los cambios en **Agregado**, **Cambiado**, **Corregido** o
 ## [No publicado]
 
 ### Agregado
+- **Soporte de idioma Quechua**: Selector de idioma (🇪🇸 ES / 🇵🇪 QU) en login y
+  perfil. Los textos del login se traducen al quechua mediante un diccionario
+  `TRADUCCIONES{es, qu}` en `login.js`. El idioma se persiste en la BD
+  (columna `idioma` en `usuarios`) y en la sesión del servidor, y se sincroniza
+  con `localStorage`. Nuevo endpoint `POST /perfil/idioma`. El selector en
+  perfil sigue el mismo patrón inline que nombre/región/localidad.
 - **Fondo personalizado en login**: Se agregó la imagen `chacra-peruana.jpg` como fondo de pantalla completa (cover) en la página de inicio de sesión, reemplazando el fondo crema sólido. Incluye overlay oscuro semitransparente para legibilidad.
 - **Rebranding global**: Se renombró la plataforma de **AgroScan** a **FrutIA**, actualizando logos, títulos, sistema de chat prompt, y PDF.
 - **Estilo marrón en "IA" del logo**: El fragmento "IA" del logo FrutIA hereda el color tierra (`#C8A96E`) que antes tenía "Scan", tanto en web como en reportes PDF.

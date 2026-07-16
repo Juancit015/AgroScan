@@ -50,6 +50,7 @@ Flask guarda en la cookie de sesión:
 session["usuario_id"]   # id numérico en la tabla usuarios
 session["nombre"]       # nombre a mostrar en el navbar
 session["rol"]          # "admin" | "agricultor"
+session["idioma"]       # "es" o "qu" — idioma de la interfaz
 ```
 
 Todas las rutas que requieren login verifican `"usuario_id" not in session`.
@@ -116,6 +117,7 @@ servidor de base de datos — ideal para una demo local o feria.
 | avatar_path | TEXT | Ruta de la foto de perfil        |
 | region  | TEXT    | Región de residencia            |
 | localidad| TEXT   | Localidad de residencia         |
+| idioma  | TEXT    | `"es"` o `"qu"` — defecto `"es"` |
 
 > El nombre de columna `dni` se mantiene por compatibilidad histórica, pero
 > en la interfaz **no se menciona como DNI** — se presenta como "clave de
@@ -160,6 +162,7 @@ siembra 3 usuarios de ejemplo si la tabla está vacía.
 | `obtener_todos_usuarios`       | Listado para el panel admin                   |
 | `agregar_usuario` / `eliminar_usuario` | Gestión de usuarios (admin)            |
 | `obtener_estadisticas_globales`| Datos para el dashboard de administración     |
+| `actualizar_idioma`           | Cambia el idioma (es/qu) de un usuario         |
 
 ---
 
@@ -212,6 +215,23 @@ explicación.
 
 ### 4.5 Capas visuales
 
+### 4.6 Internacionalización (Quechua/Español)
+
+El sistema de idioma es 100% frontend con persistencia en backend:
+
+- **Login**: selector flotante (🇪🇸 ES / 🇵🇪 QU) que cambia todos los textos vía
+  `data-i18n` + diccionario `TRADUCCIONES{es, qu}` en `login.js`. El idioma
+  se guarda en `localStorage` y se envía al backend al iniciar sesión.
+- **Backend**: `POST /perfil/idioma` persiste el idioma en la columna `idioma`
+  de la tabla `usuarios` y lo guarda en `session["idioma"]` para que sobreviva
+  entre recargas.
+- **Perfil**: el selector sigue el mismo patrón que nombre/región/localidad:
+  icono 🌐, label "Idioma / Simi", botón "Editar" que muestra dos opciones
+  toggle con banderas.
+
+El idioma seleccionado persiste en localStorage y en la sesión del servidor,
+por lo que un análisis en curso no se pierde al cambiar de idioma.
+
 `index.css` centraliza el orden de apilamiento con variables CSS:
 `--z-navbar`, `--z-toast`, `--z-mobile-nav` y `--z-modal`. El drawer móvil
 vive por encima de los toasts cuando está abierto, mientras que los toasts
@@ -238,6 +258,7 @@ Todas las rutas devuelven JSON. Las que requieren sesión devuelven
 | GET    | `/perfil`                 | Sesión | Datos del perfil del usuario autenticado      |
 | PUT    | `/perfil`                 | Sesión | `{nombre, region, localidad}` → edita perfil  |
 | DELETE | `/perfil`                 | Sesión | Elimina la cuenta del usuario y sus análisis  |
+| POST   | `/perfil/idioma`          | Sesión | `{idioma}` → cambia idioma (es/qu) del usuario       |
 | POST   | `/chat`                   | Sesión | Pregunta de seguimiento con contexto del diagnóstico |
 | GET    | `/reporte-pdf/<id>`       | Sesión | Genera y descarga el reporte PDF de un análisis |
 | GET    | `/admin/usuarios`         | Admin  | Lista de todos los usuarios                 |

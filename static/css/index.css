@@ -1066,3 +1066,33 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 .skeleton-text { height: 16px; margin: 8px 16px; width: 80%; }
 .skeleton-text.short { width: 50%; }
 .skeleton-text.tall { height: 24px; margin-top: 16px; }
+
+/* ── Selector de idioma inline en perfil ── */
+.perfil-lang-opt {
+  flex: 1;
+  padding: 0.45rem 0.7rem;
+  border: 2px solid var(--gris-suave);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--texto-suave);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.perfil-lang-opt:hover {
+  border-color: var(--verde-claro);
+  color: var(--verde-medio);
+}
+.perfil-lang-opt.active {
+  background: var(--verde-profundo);
+  border-color: var(--verde-profundo);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(27,67,50,0.2);
+}

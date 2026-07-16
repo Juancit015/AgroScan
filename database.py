@@ -97,6 +97,11 @@ def inicializar_db():
     except:
         pass
 
+    try:
+        cur.execute("ALTER TABLE usuarios ADD COLUMN idioma TEXT DEFAULT 'es'")
+    except:
+        pass
+
     cur.execute("SELECT COUNT(*) FROM usuarios")
     if cur.fetchone()[0] == 0:
         cur.executemany("INSERT INTO usuarios (nombre, dni, rol) VALUES (?, ?, ?)", [
@@ -114,7 +119,7 @@ def inicializar_db():
 def buscar_usuario_por_dni(dni):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM usuarios WHERE dni = ?", (dni,))
+    cur.execute("SELECT id, nombre, dni, rol, avatar_path, localidad, region, idioma FROM usuarios WHERE dni = ?", (dni,))
     u = cur.fetchone()
     conn.close()
     return dict(u) if u else None
@@ -365,7 +370,7 @@ def agregar_usuario(nombre, dni, rol="agricultor", region=None, localidad=None):
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("INSERT INTO usuarios (nombre, dni, rol, region, localidad) VALUES (?, ?, ?, ?, ?)", (nombre, dni, rol, region, localidad))
+        cur.execute("INSERT INTO usuarios (nombre, dni, rol, region, localidad, idioma) VALUES (?, ?, ?, ?, ?, ?)", (nombre, dni, rol, region, localidad, 'es'))
         conn.commit()
         uid = cur.lastrowid
         conn.close()
@@ -416,6 +421,14 @@ def actualizar_avatar(usuario_id, avatar_path):
     conn.close()
 
 
+def actualizar_idioma(usuario_id, idioma):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE usuarios SET idioma = ? WHERE id = ?", (idioma, usuario_id))
+    conn.commit()
+    conn.close()
+
+
 def obtener_detalles_usuario_admin(usuario_id):
     """Devuelve el perfil e historial de análisis de un usuario para el admin."""
     conn = get_connection()
@@ -446,7 +459,7 @@ def obtener_perfil(usuario_id):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, nombre, dni, rol, region, localidad, avatar_path,
+        SELECT id, nombre, dni, rol, region, localidad, avatar_path, idioma,
                (SELECT COUNT(*) FROM analisis WHERE usuario_id = usuarios.id) as total_analisis,
                (SELECT fecha FROM analisis WHERE usuario_id = usuarios.id ORDER BY fecha ASC LIMIT 1) as fecha_registro
         FROM usuarios WHERE id = ?

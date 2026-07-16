@@ -125,18 +125,35 @@ function escaparHtml(text) {
   if (seccionGuardada && seccionGuardada !== 'analizador') {
     const link = document.querySelector(`.nav-link[data-section="${seccionGuardada}"], .nav-link-movil[data-section="${seccionGuardada}"]`);
     if (link) {
-      // Ajustamos el DOM directamente antes del primer renderizado para evitar parpadeos
       document.querySelectorAll('.nav-link, .nav-link-movil').forEach(l => l.classList.remove('active'));
       document.querySelectorAll(`.nav-link[data-section="${seccionGuardada}"], .nav-link-movil[data-section="${seccionGuardada}"]`).forEach(l => l.classList.add('active'));
       document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
       document.getElementById(`sec-${seccionGuardada}`).classList.add('activa');
-      
-      // Disparamos la carga de datos de forma asíncrona pero sin parpadeos visuales
       if (seccionGuardada === 'historial') cargarHistorial();
       if (seccionGuardada === 'dashboard') cargarDashboard();
       if (seccionGuardada === 'admin') cargarAdmin();
       if (seccionGuardada === 'perfil') cargarPerfil();
     }
+  }
+
+  const analisisGuardado = localStorage.getItem('frutia_ultimo_analisis');
+  if (analisisGuardado) {
+    try {
+      const data = JSON.parse(analisisGuardado);
+      document.querySelectorAll('.nav-link, .nav-link-movil').forEach(l => l.classList.remove('active'));
+      document.querySelectorAll('.seccion').forEach(s => s.classList.remove('activa'));
+      document.getElementById('sec-analizador').classList.add('activa');
+      const prv = document.getElementById('preview');
+      const ph  = document.getElementById('placeholder');
+      const btn = document.getElementById('btn-reiniciar');
+      if (data.imagen_path && prv && ph) {
+        prv.src = '/static/' + data.imagen_path;
+        prv.style.display = 'block';
+        ph.style.display = 'none';
+      }
+      if (btn) btn.style.display = 'block';
+      mostrarResultado(data);
+    } catch (e) {}
   }
 })();
 
@@ -379,7 +396,8 @@ async function abrirCamaraEscritorio() {
 }
 
 function manejarArchivoSeleccionado(file) {
-  if (!file || analisisEnCurso) return; // ignora selecciones mientras ya hay un proceso activo
+  if (!file || analisisEnCurso) return;
+  localStorage.removeItem('frutia_ultimo_analisis');
   const reader = new FileReader();
   reader.onload = ev => {
     const b64 = ev.target.result;
@@ -398,7 +416,8 @@ inputGaleria.addEventListener('change', e => manejarArchivoSeleccionado(e.target
 btnReiniciar.addEventListener('click', reiniciar);
 
 function reiniciar() {
-  if (analisisEnCurso) return; // btnReiniciar ya estaría disabled; defensa extra
+  if (analisisEnCurso) return;
+  localStorage.removeItem('frutia_ultimo_analisis');
   preview.style.display      = 'none';
   placeholder.style.display  = 'flex';
   overlay.style.display      = 'none';
@@ -452,7 +471,8 @@ async function analizarImagen(b64) {
 // ── Mostrar resultado ────────────────────────────────────────────
 function mostrarResultado(data) {
   window.ultimoDiagnosticoData = data;
-  window.chatHistorial = []; // reiniciar chat al hacer un nuevo diagnóstico
+  window.chatHistorial = [];
+  try { localStorage.setItem('frutia_ultimo_analisis', JSON.stringify(data)); } catch (e) {}
   document.getElementById('chat-mensajes').innerHTML = '';
   ocultarTodos();
   document.getElementById('resultado-contenido').style.display = 'flex';
@@ -1718,6 +1738,20 @@ function renderPerfil(p) {
         </div>
       </div>
 
+      <div class="perfil-section-title">Idioma / Simi</div>
+      <div class="perfil-lista">
+        <div class="perfil-item">
+          <span class="perfil-item-icono">🌐</span>
+          <div class="perfil-item-body perfil-campo">
+            <span class="perfil-label">Idioma / Simi</span>
+            <div class="perfil-valor" id="perfil-campo-idioma">
+              <span id="perfil-valor-idioma">${p.idioma === 'qu' ? '🇵🇪 Quechua' : '🇪🇸 Español'}</span>
+              <button class="perfil-editar-btn" onclick="editarIdiomaPerfil()">Editar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="perfil-section-title">Información personal</div>
       <div class="perfil-lista">
         <div class="perfil-item">
@@ -1866,7 +1900,8 @@ async function guardarCampoPerfil(campo, valor) {
         el.childNodes[0].textContent = valor;
       });
     }
-    mostrarToast('success', 'Perfil actualizado');
+    const msgs = { nombre: 'Nombre guardado', region: 'Región actualizada', localidad: 'Localidad actualizada' };
+    mostrarToast('success', msgs[campo] || 'Perfil actualizado');
   } catch {
     errEl.textContent = 'Error de conexión.';
     errEl.style.display = 'block';
@@ -1912,4 +1947,47 @@ function eliminarMiCuenta() {
       }
     } catch { mostrarToast('error', 'Error de conexión'); }
   };
+}
+
+// ── Idioma (Quechua / Español) ─────────────────────────────────────
+function editarIdiomaPerfil() {
+  const contEl = document.getElementById('perfil-campo-idioma');
+  const langActual = perfilData.idioma || 'es';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'perfil-edit-row';
+  wrap.style.gap = '0.5rem';
+  wrap.innerHTML = `
+    <button class="perfil-lang-opt ${langActual === 'es' ? 'active' : ''}" data-lang="es" onclick="this.parentElement.querySelectorAll('.perfil-lang-opt').forEach(b=>b.classList.remove('active'));this.classList.add('active')">🇪🇸 Español</button>
+    <button class="perfil-lang-opt ${langActual === 'qu' ? 'active' : ''}" data-lang="qu" onclick="this.parentElement.querySelectorAll('.perfil-lang-opt').forEach(b=>b.classList.remove('active'));this.classList.add('active')">🇵🇪 Quechua</button>
+    <div class="perfil-edit-acciones">
+      <button type="button" class="perfil-btn-guardar" id="perfil-btn-guardar-idioma" title="Guardar">✓</button>
+      <button type="button" class="perfil-btn-cancelar" onclick="cancelarEdicionPerfil()" title="Cancelar">✕</button>
+    </div>`;
+  contEl.innerHTML = '';
+  contEl.appendChild(wrap);
+
+  document.getElementById('perfil-btn-guardar-idioma').addEventListener('click', async () => {
+    const selected = wrap.querySelector('.perfil-lang-opt.active');
+    if (!selected) return;
+    const lang = selected.dataset.lang;
+    try {
+      const res = await fetch('/perfil/idioma', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idioma: lang })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        perfilData.idioma = lang;
+        localStorage.setItem('frutia_idioma', lang);
+        renderPerfil(perfilData);
+        mostrarToast('success', '🌐 Idioma cambiado a ' + (lang === 'qu' ? 'Quechua' : 'Español'));
+      } else {
+        mostrarToast('error', 'Error', data.error);
+      }
+    } catch {
+      mostrarToast('error', 'Error de conexión');
+    }
+  });
 }

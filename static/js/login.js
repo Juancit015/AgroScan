@@ -1,3 +1,83 @@
+// ── Traducciones Español / Quechua ───────────────────────────────
+const TRADUCCIONES = {
+  es: {
+    panel_titulo: 'Diagnóstico <em>inteligente</em> para tus cultivos',
+    panel_desc: 'Fotografía un cultivo y la IA detecta enfermedades, evalúa la madurez y recomienda el tratamiento adecuado con fuentes confiables.',
+    footer: 'Desarrollado en Paijan, La Libertad, Perú',
+    login_titulo: 'Bienvenido',
+    login_sub: 'Ingresa tu clave para acceder al sistema',
+    login_label: 'Clave de acceso',
+    login_error: 'Clave incorrecta',
+    login_btn: 'Ingresar al sistema',
+    login_toggle: '¿No estás registrado?',
+    login_toggle_link: '¡Regístrate!',
+    reg_titulo: 'Crear cuenta',
+    reg_sub: 'Crea tu cuenta de agricultor',
+    reg_label_nombre: 'Nombre y Apellido',
+    reg_label_region: 'Región',
+    reg_label_localidad: 'Localidad',
+    reg_label_clave: 'Clave de acceso (8 dígitos)',
+    reg_btn: 'Crear cuenta',
+    reg_toggle: '¿Ya tienes cuenta?',
+    reg_toggle_link: 'Inicia sesión',
+    reg_region_placeholder: 'Selecciona tu región...',
+    reg_localidad_placeholder: 'Primero selecciona región',
+    verificando: 'Verificando...',
+    registrando: 'Registrando...',
+    btn_login_cargando: 'Verificando...',
+    btn_login_normal: 'Ingresar al sistema',
+  },
+  qu: {
+    panel_titulo: 'Diagnóstico <em>yuyayniyuq</em> chakra yukunapaq',
+    panel_desc: 'Chakra yukata llimphiykuy, IA unquykunata tarin, puqushananta qhawaykun ima allin hampiyta yuyaywan willakun.',
+    footer: 'Paijan, La Libertad, Perú llaqtapi ruwasqa',
+    login_titulo: 'Allin hamuy',
+    login_sub: 'Yaykunaykipaq kichayki yupayta qillqay',
+    login_label: 'Yaykuna kichay',
+    login_error: 'Kichay yupi pantasqa',
+    login_btn: 'Sistema ukhuman yaykuy',
+    login_toggle: '¿Manaraq qillqarachu kanki?',
+    login_toggle_link: '¡Qillqakuy!',
+    reg_titulo: 'Cuenta kamariy',
+    reg_sub: 'Yapuq cuenta kamariy',
+    reg_label_nombre: 'Sutiyki',
+    reg_label_region: 'Suyu',
+    reg_label_localidad: 'Llaqta',
+    reg_label_clave: 'Yaykuna kichay (8 qillqa)',
+    reg_btn: 'Cuenta ruway',
+    reg_toggle: '¿Kañan cuenta niyuqchu kanki?',
+    reg_toggle_link: 'Yaykuy',
+    reg_region_placeholder: 'Suyuykita akllay...',
+    reg_localidad_placeholder: 'Ñawpaqta suyuta akllay',
+    verificando: 'Qhawaykun...',
+    registrando: 'Qillqakuchkan...',
+    btn_login_cargando: 'Qhawaykun...',
+    btn_login_normal: 'Sistema ukhuman yaykuy',
+  }
+};
+
+let idiomaActual = localStorage.getItem('frutia_idioma') || 'es';
+
+function cambiarIdioma(lang) {
+  idiomaActual = lang;
+  localStorage.setItem('frutia_idioma', lang);
+
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    const t = TRADUCCIONES[lang]?.[key];
+    if (t !== undefined) el.innerHTML = t;
+  });
+}
+
+(function initIdioma() {
+  const langGuardado = localStorage.getItem('frutia_idioma') || 'es';
+  cambiarIdioma(langGuardado);
+})();
+
 // ── Referencias al DOM ──────────────────────────────────────────
 const inputDni    = document.getElementById('dni');
 const btnLogin    = document.getElementById('btn-login');
@@ -44,7 +124,7 @@ async function iniciarSesion() {
     const res = await fetch('/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dni })
+      body: JSON.stringify({ dni, idioma: idiomaActual })
     });
 
     const data = await res.json();
@@ -82,7 +162,7 @@ function ocultarError() {
 function setEstadoCargando(cargando) {
   btnLogin.disabled       = cargando;
   spinner.style.display   = cargando ? 'block' : 'none';
-  btnTexto.textContent    = cargando ? 'Verificando...' : 'Ingresar al sistema';
+  btnTexto.textContent    = cargando ? TRADUCCIONES[idiomaActual].verificando : TRADUCCIONES[idiomaActual].btn_login_normal;
 }
 
 // ── Lógica de Registro ──────────────────────────────────────────
@@ -185,14 +265,14 @@ if (regDni && regNombre && btnRegistrar) {
 
     btnRegistrar.disabled = true;
     regSpinner.style.display = 'block';
-    regBtnTexto.textContent = 'Registrando...';
+    regBtnTexto.textContent = TRADUCCIONES[idiomaActual].registrando;
     regErrorMsg.classList.remove('visible');
 
     try {
       const res = await fetch('/registro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre, region, localidad, dni })
+        body: JSON.stringify({ nombre, region, localidad, dni, idioma: idiomaActual })
       });
       const data = await res.json();
 
@@ -205,13 +285,13 @@ if (regDni && regNombre && btnRegistrar) {
         mostrarErrorReg(data.error || 'Error al registrar');
         btnRegistrar.disabled = false;
         regSpinner.style.display = 'none';
-        regBtnTexto.textContent = 'Crear cuenta';
+        regBtnTexto.textContent = TRADUCCIONES[idiomaActual].reg_btn;
       }
     } catch (err) {
       mostrarErrorReg('Error de conexión');
       btnRegistrar.disabled = false;
       regSpinner.style.display = 'none';
-      regBtnTexto.textContent = 'Crear cuenta';
+      regBtnTexto.textContent = TRADUCCIONES[idiomaActual].reg_btn;
     }
   });
 }

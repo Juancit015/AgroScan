@@ -23,7 +23,8 @@ from database import (inicializar_db, buscar_usuario_por_dni, guardar_analisis,
                       obtener_historial, obtener_estadisticas, eliminar_analisis,
                       obtener_todos_usuarios, agregar_usuario, eliminar_usuario,
                       editar_usuario, nombre_en_uso, actualizar_avatar,
-                      obtener_estadisticas_globales, obtener_analisis_por_id)
+                      obtener_estadisticas_globales, obtener_analisis_por_id,
+                      actualizar_idioma)
 from weasyprint import HTML
 from groq import Groq
 import base64, os, json, re, uuid, time, io
@@ -114,7 +115,8 @@ def index():
     return render_template("index.html",
                            usuario=session.get("nombre"),
                            rol=session.get("rol"),
-                           avatar=session.get("avatar_path"))
+                           avatar=session.get("avatar_path"),
+                           idioma=session.get("idioma", "es"))
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -125,13 +127,18 @@ def login():
     usuario = buscar_usuario_por_dni(dni)
     if not usuario:
         return jsonify({"error": "Credenciales incorrectas"}), 401
+    idioma = data.get("idioma") or usuario.get("idioma") or "es"
+    if idioma != usuario.get("idioma"):
+        actualizar_idioma(usuario["id"], idioma)
     session["usuario_id"]   = usuario["id"]
     session["nombre"]       = usuario["nombre"]
     session["rol"]          = usuario["rol"]
     session["avatar_path"]  = usuario.get("avatar_path")
     session["localidad"]    = usuario.get("localidad")
+    session["idioma"]       = idioma
     return jsonify({"mensaje": f"Bienvenido, {usuario['nombre']}!",
-                    "nombre": usuario["nombre"], "rol": usuario["rol"]})
+                    "nombre": usuario["nombre"], "rol": usuario["rol"],
+                    "idioma": idioma})
 
 @app.route("/logout")
 def logout():
@@ -157,16 +164,21 @@ def registro():
     if nombre_en_uso(nombre):
         return jsonify({"error": "Ya existe un usuario con ese nombre. Usa uno distinto."}), 409
 
+    idioma = data.get("idioma") or "es"
     resultado = agregar_usuario(nombre, clave, rol="agricultor", region=region, localidad=localidad)
     if resultado["ok"]:
         usuario = buscar_usuario_por_dni(clave)
+        if idioma != "es":
+            actualizar_idioma(usuario["id"], idioma)
         session["usuario_id"]   = usuario["id"]
         session["nombre"]       = usuario["nombre"]
         session["rol"]          = usuario["rol"]
         session["avatar_path"]  = usuario.get("avatar_path")
         session["localidad"]    = usuario.get("localidad")
+        session["idioma"]       = idioma
         return jsonify({"mensaje": f"¡Registro exitoso! Bienvenido, {usuario['nombre']}!",
-                        "nombre": usuario["nombre"], "rol": usuario["rol"]})
+                        "nombre": usuario["nombre"], "rol": usuario["rol"],
+                        "idioma": idioma})
     return jsonify({"error": resultado.get("error", "Error al registrar")}), 409
 
 @app.route("/analizar", methods=["POST"])
@@ -785,6 +797,18 @@ def perfil_eliminar():
     eliminar_usuario(session["usuario_id"])
     session.clear()
     return jsonify({"mensaje": "Cuenta eliminada correctamente"})
+
+@app.route("/perfil/idioma", methods=["POST"])
+def perfil_idioma():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No has iniciado sesión"}), 401
+    data = request.get_json() or {}
+    idioma = data.get("idioma", "es")
+    if idioma not in ("es", "qu"):
+        return jsonify({"error": "Idioma no soportado"}), 400
+    actualizar_idioma(session["usuario_id"], idioma)
+    session["idioma"] = idioma
+    return jsonify({"mensaje": "Idioma actualizado", "idioma": idioma})
 
 
 # ── Rutas Admin ───────────────────────────────────────────────────
