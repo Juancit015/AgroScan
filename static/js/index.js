@@ -1,3 +1,8 @@
+// ── Utilidad para limpiar asteriscos de nombres (enfermedades, etc.) ──
+function limpiarNombre(txt) {
+  return (txt || '').replace(/\*+/g, '');
+}
+
 // ── Sistema de notificaciones (toast) ───────────────────────────────
 // Reutilizable en toda la plataforma: mostrarToast('success'|'error'|
 // 'warning'|'info', 'Título', 'Descripción opcional', duraciónMs).
@@ -879,6 +884,24 @@ function escaparHtml(text) {
   return div.innerHTML;
 }
 
+// ── Referencias DOM ──────────────────────────────────────────────
+const preview      = document.getElementById('preview');
+const placeholder  = document.getElementById('placeholder');
+const overlay      = document.getElementById('overlay');
+const zonaOverlay  = document.getElementById('zona-overlay');
+const zonaDescDiv  = document.getElementById('zona-descripcion');
+const zonaDescText = document.getElementById('zona-desc-texto');
+const btnReiniciar = document.getElementById('btn-reiniciar');
+const btnLogout    = document.getElementById('btn-logout');
+
+let chartEstado = null, chartEnfermedades = null, chartCultivos = null, chartActividad = null;
+
+const VERDE_PROFUNDO = '#1B4332';
+const VERDE_CLARO    = '#52B788';
+const TIERRA         = '#C8A96E';
+const WARNING        = '#D97706';
+const PALETTE = ['#1B4332','#52B788','#C8A96E','#2D6A4F','#B7E4C7','#D97706','#DC2626','#95D5B2'];
+
 // ── Inicialización de estado ─────────────────────────────────────
 (function initState() {
   traducirHTML();
@@ -921,24 +944,6 @@ function escaparHtml(text) {
     } catch (e) {}
   }
 })();
-
-// ── Referencias DOM ──────────────────────────────────────────────
-const preview      = document.getElementById('preview');
-const placeholder  = document.getElementById('placeholder');
-const overlay      = document.getElementById('overlay');
-const zonaOverlay  = document.getElementById('zona-overlay');
-const zonaDescDiv  = document.getElementById('zona-descripcion');
-const zonaDescText = document.getElementById('zona-desc-texto');
-const btnReiniciar = document.getElementById('btn-reiniciar');
-const btnLogout    = document.getElementById('btn-logout');
-
-let chartEstado = null, chartEnfermedades = null, chartCultivos = null, chartActividad = null;
-
-const VERDE_PROFUNDO = '#1B4332';
-const VERDE_CLARO    = '#52B788';
-const TIERRA         = '#C8A96E';
-const WARNING        = '#D97706';
-const PALETTE = ['#1B4332','#52B788','#C8A96E','#2D6A4F','#B7E4C7','#D97706','#DC2626','#95D5B2'];
 
 // ── Plugin: mensaje cuando el chart queda vacío ──────────────────
 const emptyStatePlugin = {
@@ -1328,7 +1333,7 @@ function mostrarResultado(data, restaurar) {
           ${__('analisis_alerta_zona')}
         </div>
         <p class="alerta-regional-texto">
-          ${__('analisis_alerta_texto', alerta.casos, alerta.enfermedad, alerta.localidad, alerta.dias)}
+          ${__('analisis_alerta_texto', alerta.casos, limpiarNombre(alerta.enfermedad), alerta.localidad, alerta.dias)}
         </p>
       </div>
     `).join('');
@@ -1343,7 +1348,7 @@ function mostrarResultado(data, restaurar) {
     enfs.forEach(e => {
       contEnf.innerHTML += `
         <div class="enfermedad-card">
-          <div><span class="enfermedad-nombre">${e.nombre}</span>
+          <div><span class="enfermedad-nombre">${limpiarNombre(e.nombre)}</span>
                <span class="enfermedad-severidad">${e.severidad}</span></div>
           <p>${e.descripcion}</p>
         </div>`;
@@ -2003,7 +2008,7 @@ function renderHistorial(reiniciarPagina = false) {
     const enfs = item.enfermedades || [];
     const estaEnfermo = enfs.length > 0;
     const enfsHtml = estaEnfermo
-      ? enfs.map(e => `<span class="historial-enfermedad-tag">⚠️ ${e.nombre}</span>`).join('')
+      ? enfs.map(e => `<span class="historial-enfermedad-tag">⚠️ ${limpiarNombre(e.nombre)}</span>`).join('')
       : '<span class="historial-enfermedad-tag historial-tag-sano" style="background:#d1fae5;color:#065f46;">' + __('hist_sano') + '</span>';
 
     const borderColor = estaEnfermo ? '#ef4444' : 'var(--verde-claro)';
@@ -2054,7 +2059,7 @@ function abrirDetalleHistorial(id) {
     ? enfs.map(e => `
         <div style="background:#FEF3C7; padding:1rem; border-radius:8px; margin-bottom:1rem; border-left:4px solid #F59E0B;">
           <h4 style="margin:0; color:#92400E; display:flex; justify-content:space-between; align-items:center;">
-            ${e.nombre} 
+            ${limpiarNombre(e.nombre)} 
             <span style="font-size:0.75rem; background:#fff; padding:2px 6px; border-radius:4px; font-weight:bold;">${e.severidad}</span>
           </h4>
           <p style="margin:0.5rem 0 0; font-size:0.9rem; line-height:1.4;">${e.descripcion}</p>
@@ -2230,7 +2235,7 @@ async function cargarDashboard() {
         chartEnfermedades = new Chart(document.getElementById('chart-enfermedades'), {
           type: 'bar',
           data: {
-            labels: enfs.map(e => e.nombre),
+            labels: enfs.map(e => limpiarNombre(e.nombre)),
             datasets: [{ label: __('graf_frecuencia'), data: enfs.map(e => e.cantidad), backgroundColor: WARNING, borderRadius: 6, borderSkipped: false }]
           },
           options: { ...baseOpts, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { stepSize: 1 }, grid: { display: false } }, y: { grid: { display: false } } } }
@@ -2579,7 +2584,7 @@ async function abrirDetallesUsuario(event, uid) {
     const historialHtml = data.historial.length === 0 
       ? '<div class="empty-state"><div class="empty-state-icon">📋</div><h3>' + __('admin_sin_analisis') + '</h3><p>' + __('admin_sin_analisis_desc') + '</p></div>'
       : '<div class="modal-historial-lista">' + data.historial.map(item => {
-          const enf = item.enfermedades.length ? `⚠️ ${item.enfermedades[0].nombre}` : __('hist_sano');
+          const enf = item.enfermedades.length ? `⚠️ ${limpiarNombre(item.enfermedades[0].nombre)}` : __('hist_sano');
           const fecha = formatearFecha(item.fecha);
           const imgSrc = item.imagen_path ? `/static/${item.imagen_path}` : '';
           const imgHtml = imgSrc ? `<img src="${imgSrc}" alt="Cultivo">` : '<div style="width:80px;height:80px;background:#eee;border-radius:8px;display:flex;align-items:center;justify-content:center;">📷</div>';

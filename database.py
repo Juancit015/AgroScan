@@ -17,7 +17,7 @@ ejemplo la primera vez que se ejecuta. Es seguro llamarla en cada arranque.
 Última actualización: 2026-06-18 (ver CHANGELOG.md → [0.4.0])
 """
 
-import sqlite3, json
+import sqlite3, json, re
 from datetime import datetime, timedelta
 
 DB_PATH = "frutia.db"
@@ -133,9 +133,18 @@ def buscar_usuario_por_dni(dni):
     return dict(u) if u else None
 
 
+def _limpiar_asteriscos(val):
+    if isinstance(val, str):
+        return re.sub(r'\*+', '', val)
+    return val
+
 def guardar_analisis(usuario_id, resultado, imagen_path=None):
     conn = get_connection()
     cur = conn.cursor()
+    enfermedades = resultado.get("enfermedades", [])
+    for e in enfermedades:
+        if "nombre" in e:
+            e["nombre"] = _limpiar_asteriscos(e["nombre"])
     cur.execute("""
         INSERT INTO analisis
             (usuario_id, cultivo, maduracion, confianza, enfermedades,
@@ -146,7 +155,7 @@ def guardar_analisis(usuario_id, resultado, imagen_path=None):
         resultado.get("cultivo"),
         resultado.get("maduracion"),
         resultado.get("confianza"),
-        json.dumps(resultado.get("enfermedades", []),  ensure_ascii=False),
+        json.dumps(enfermedades,  ensure_ascii=False),
         resultado.get("tratamiento"),
         json.dumps(resultado.get("explicacion", []),   ensure_ascii=False),
         json.dumps(resultado.get("zona_afectada", {}), ensure_ascii=False),
@@ -251,7 +260,7 @@ def verificar_brotes_regionales(enfermedades_detectadas, localidad, dias=7):
         try:
             enfs = json.loads(fila["enfermedades"])
             for e in enfs:
-                nombre = e.get("nombre")
+                nombre = _limpiar_asteriscos(e.get("nombre"))
                 if nombre:
                     conteo[nombre] = conteo.get(nombre, 0) + 1
         except:
@@ -259,7 +268,7 @@ def verificar_brotes_regionales(enfermedades_detectadas, localidad, dias=7):
             
     alertas = []
     for e in enfermedades_detectadas:
-        nombre = e.get("nombre")
+        nombre = _limpiar_asteriscos(e.get("nombre"))
         casos = conteo.get(nombre, 0)
         if casos > 1:
             alertas.append({

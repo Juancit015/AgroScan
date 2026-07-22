@@ -606,6 +606,7 @@ def format_text_for_pdf(text):
     return text.replace('\n', '<br>')
 
 app.jinja_env.filters['render_formatted'] = format_text_for_pdf
+app.jinja_env.filters['strip_asterisks'] = lambda v: (v or '').replace('*', '')
 
 REPORTE_PDF_TEMPLATE = """
 <!DOCTYPE html>
@@ -801,7 +802,7 @@ REPORTE_PDF_TEMPLATE = """
       <div class="bloque-titulo enfermedad"><img src="{{ emoji.warning }}" class="emoji-img" alt="">{{ t.enfermedades_detectadas }}</div>
       {% for e in enfermedades %}
         <div class="enf-item">
-          <span class="enf-nombre">{{ e.nombre }}</span>
+          <span class="enf-nombre">{{ e.nombre | strip_asterisks }}</span>
           <span class="enf-severidad">[ {{ e.severidad }} ]</span>
           {% if e.descripcion %}
             <div class="enf-desc">{{ e.descripcion }}</div>
