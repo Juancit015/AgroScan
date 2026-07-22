@@ -1251,6 +1251,7 @@ function guardarChat() {
 }
 
 function renderFormatted(text) {
+  if (!text) return '';
   return text
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/^\s*\* /gm, ' • ')
@@ -1384,7 +1385,7 @@ function mostrarResultado(data, restaurar) {
     zonaOverlay.style.height = zh + '%';
     zonaOverlay.style.display = 'block';
     if (zona.descripcion) {
-      zonaDescText.textContent  = zona.descripcion;
+      zonaDescText.innerHTML  = renderFormatted(zona.descripcion);
       zonaDescDiv.style.display = 'flex';
     }
   }
@@ -2025,7 +2026,7 @@ function renderHistorial(reiniciarPagina = false) {
             <div class="historial-cultivo">${item.cultivo || __('hist_desconocido')}</div>
             <div class="historial-fecha">${formatearFecha(item.fecha)}</div>
           </div>
-          <div class="historial-maduracion">${item.maduracion || __('analisis_maduracion_default')}</div>
+          <div class="historial-maduracion">${traducirMaduracion(item.maduracion) || __('analisis_maduracion_default')}</div>
           <div class="historial-confianza-wrap">
             <div class="confianza-track historial-confianza-track">
               <div class="confianza-fill ${item.confianza >= 80 ? 'verde' : item.confianza >= 60 ? 'amarillo' : 'rojo'}"
@@ -2062,7 +2063,7 @@ function abrirDetalleHistorial(id) {
             ${limpiarNombre(e.nombre)} 
             <span style="font-size:0.75rem; background:#fff; padding:2px 6px; border-radius:4px; font-weight:bold;">${e.severidad}</span>
           </h4>
-          <p style="margin:0.5rem 0 0; font-size:0.9rem; line-height:1.4;">${e.descripcion}</p>
+          <p style="margin:0.5rem 0 0; font-size:0.9rem; line-height:1.4;">${renderFormatted(e.descripcion)}</p>
         </div>
       `).join('')
     : `<div style="background:#d1fae5; padding:1rem; border-radius:8px; margin-bottom:1rem; border-left:4px solid #10b981;">
@@ -2083,7 +2084,7 @@ function abrirDetalleHistorial(id) {
     <div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
       <div style="flex:1; background:#f8fafc; padding:1rem; border-radius:8px; border:1px solid #e2e8f0; min-width:140px;">
         <strong style="display:block; font-size:0.75rem; color:var(--texto-suave); margin-bottom:0.2rem; text-transform:uppercase; letter-spacing:0.5px;">${__('modal_estado_maduracion')}</strong>
-        <span style="font-weight:700; color:var(--verde-medio); font-size:1.1rem;">${data.maduracion || __('analisis_maduracion_default')}</span>
+        <span style="font-weight:700; color:var(--verde-medio); font-size:1.1rem;">${traducirMaduracion(data.maduracion) || __('analisis_maduracion_default')}</span>
       </div>
       <div style="flex:1; background:#f8fafc; padding:1rem; border-radius:8px; border:1px solid #e2e8f0; min-width:140px;">
         <strong style="display:block; font-size:0.75rem; color:var(--texto-suave); margin-bottom:0.2rem; text-transform:uppercase; letter-spacing:0.5px;">${__('modal_confianza_ia')}</strong>
@@ -2097,7 +2098,7 @@ function abrirDetalleHistorial(id) {
     ${(data.zona_afectada && data.zona_afectada.descripcion && enfs.length > 0) ? `
       <div style="background:#fff7ed; padding:1rem; border-radius:8px; margin-bottom:1rem; border-left:4px solid #f97316; margin-top:-0.5rem;">
         <strong style="font-size:0.8rem; color:#c2410c; text-transform:uppercase; letter-spacing:0.5px;">${__('modal_zona_afectada')}</strong>
-        <p style="margin:0.3rem 0 0; font-size:0.9rem; color:#9a3412;">${data.zona_afectada.descripcion}</p>
+        <p style="margin:0.3rem 0 0; font-size:0.9rem; color:#9a3412;">${renderFormatted(data.zona_afectada.descripcion)}</p>
       </div>
     ` : ''}
 
@@ -2337,6 +2338,16 @@ const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','N
 const MESES_QU = ['Ini','Hat','Pau','Ayr','Aym','Int','Ant','Qap','Uma','Kan','Aya','Qap'];
 const MESES_ES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const MESES_QU_LARGO = ['Qhulla','Hatun','Paucar','Ayrway','Aymuray','Inti','Anta','Qapaq','Uma','Kantaray','Ayamarq\'a','Qhapaq'];
+
+const MADURACION_TRAD = {
+  es: { 'Verde': 'Verde', 'En desarrollo': 'En desarrollo', 'Listo para cosecha': 'Listo para cosecha', 'Sobre maduro': 'Sobre maduro' },
+  qu: { 'Verde': "Q'umir", 'En desarrollo': 'Wiñachkan', 'Listo para cosecha': 'Aymuraypaq listo', 'Sobre maduro': 'Mana allin puqusqa' }
+};
+function traducirMaduracion(val) {
+  if (!val) return val;
+  const lang = obtenerLang();
+  return MADURACION_TRAD[lang]?.[val] || val;
+}
 
 function formatearFecha(f) {
   if (!f) return __('analisis_maduracion_default');
