@@ -288,7 +288,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 
 /* ── Analizador ── */
 .analizador-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;}
-.panel-camara{background:#fff;border-radius:16px;padding:1.5rem;box-shadow:0 4px 20px rgba(0,0,0,.06);min-width:0;}
+.panel-camara{background:#fff;border-radius:16px;padding:1.5rem;box-shadow:0 4px 20px rgba(0,0,0,.06);min-width:0;position:sticky;top:100px;}
 .camara-header{margin-bottom:1rem;}
 .camara-header h2{font-family:var(--font-sans);font-size:1.1rem;font-weight:700;color:var(--verde-profundo);}
 .camara-header p{font-size:.82rem;color:var(--texto-suave);margin-top:.2rem;}
@@ -394,7 +394,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 .confianza-fill.rojo{background:var(--error);}
 .resultado-bloque{display:flex;flex-direction:column;gap:.5rem;}
 .resultado-bloque h4{font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--texto-suave);}
-.texto-resultado{font-size:.9rem;line-height:1.6;color:var(--texto);}
+.texto-resultado{font-size:.9rem;line-height:1.35;color:var(--texto);}
 .enfermedad-card{background:#FEF3C7;border-left:3px solid var(--warning);padding:.75rem 1rem;border-radius:8px;margin-bottom:.5rem;}
 .enfermedad-nombre{font-weight:700;font-size:.9rem;color:#92400E;}
 .enfermedad-severidad{display:inline-block;font-size:.72rem;font-weight:600;padding:.1rem .5rem;border-radius:99px;margin-left:.5rem;background:#FDE68A;color:#92400E;}
@@ -574,7 +574,7 @@ body{font-family:var(--font-sans);background:var(--crema);color:var(--texto);min
 
   /* Analizador en móvil: acotar tamaños para que las tarjetas (foto del
      cultivo y resultado) no queden gigantes en pantallas pequeñas. */
-  .panel-camara{padding:.6rem;}
+  .panel-camara{padding:.6rem;position:static;}
   .panel-resultado{padding:1.1rem;}
   .panel-resultado{min-height:0;}
   .camara-header{margin-bottom:.4rem;}

@@ -1245,6 +1245,15 @@ function guardarChat() {
   } catch (e) {}
 }
 
+function renderFormatted(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^\s*\* /gm, ' • ')
+    .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+    .replace(/\n{2,}/g, '\n')
+    .replace(/\n/g, '<br>');
+}
+
 function mostrarResultado(data, restaurar) {
   window.ultimoDiagnosticoData = data;
   try { localStorage.setItem('frutia_ultimo_analisis', JSON.stringify(data)); } catch (e) {}
@@ -1279,11 +1288,13 @@ function mostrarResultado(data, restaurar) {
   
   // Tratamiento
   const txtTratamiento = (data.tratamiento || '').trim();
-  document.getElementById('res-tratamiento').textContent = txtTratamiento && txtTratamiento !== '—' 
-    ? txtTratamiento 
+  document.getElementById('res-tratamiento').innerHTML = txtTratamiento && txtTratamiento !== '—' 
+    ? renderFormatted(txtTratamiento) 
     : __('analisis_tratamiento_default');
     
-  document.getElementById('res-advertencia').textContent = data.advertencia || '';
+  document.getElementById('res-advertencia').innerHTML = data.advertencia 
+    ? renderFormatted(data.advertencia) 
+    : '';
 
   // Recomendación de consumo
   const bloqueRecomendacion = document.getElementById('bloque-recomendacion');
@@ -1291,11 +1302,10 @@ function mostrarResultado(data, restaurar) {
   const recConsumo = (data.recomendacion_consumo || '').trim();
   
   if (recConsumo && recConsumo.toLowerCase() !== 'sin contraindicaciones relevantes') {
-    resRecomendacion.textContent = recConsumo;
+    resRecomendacion.innerHTML = renderFormatted(recConsumo);
     bloqueRecomendacion.style.display = 'block';
   } else {
-    // Si no hay una recomendación de alerta específica, mostrar mensaje de que es seguro
-    resRecomendacion.textContent = __('modal_contraindicaciones');
+    resRecomendacion.innerHTML = __('modal_contraindicaciones');
     bloqueRecomendacion.style.display = 'block';
   }
 
@@ -1350,7 +1360,7 @@ function mostrarResultado(data, restaurar) {
   listaExp.innerHTML = '';
   if (exp.length > 0) {
     bloqExp.style.display = 'block';
-    exp.forEach(obs => { listaExp.innerHTML += `<li>${obs}</li>`; });
+    exp.forEach(obs => { listaExp.innerHTML += `<li><span>${renderFormatted(obs.replace(/\n/g, ' '))}</span></li>`; });
   } else {
     bloqExp.style.display = 'none';
   }
@@ -1358,10 +1368,15 @@ function mostrarResultado(data, restaurar) {
   // Zona afectada
   const zona = data.zona_afectada;
   if (zona && zona.x !== undefined && enfs.length > 0) {
-    zonaOverlay.style.left   = zona.x      + '%';
-    zonaOverlay.style.top    = zona.y      + '%';
-    zonaOverlay.style.width  = zona.width  + '%';
-    zonaOverlay.style.height = zona.height + '%';
+    let zx = Number(zona.x), zy = Number(zona.y), zw = Number(zona.width), zh = Number(zona.height);
+    if (zx > 100 || zy > 100 || zw > 100 || zh > 100) {
+      const scale = 10;
+      zx /= scale; zy /= scale; zw /= scale; zh /= scale;
+    }
+    zonaOverlay.style.left   = zx      + '%';
+    zonaOverlay.style.top    = zy      + '%';
+    zonaOverlay.style.width  = zw  + '%';
+    zonaOverlay.style.height = zh + '%';
     zonaOverlay.style.display = 'block';
     if (zona.descripcion) {
       zonaDescText.textContent  = zona.descripcion;
@@ -2084,16 +2099,16 @@ function abrirDetalleHistorial(id) {
     ${(data.explicacion && data.explicacion.length > 0) ? `
       <h3 style="margin-bottom:0.8rem; font-size:1.1rem; margin-top:1.5rem; border-bottom:2px solid #f1f5f9; padding-bottom:0.4rem;">${__('modal_porque_diagnostico')}</h3>
       <ul style="margin:0 0 1rem; padding-left:1.2rem; display:flex; flex-direction:column; gap:0.4rem;">
-        ${(data.explicacion || []).map(obs => `<li style="font-size:0.9rem; color:#334155; line-height:1.5;">${obs}</li>`).join('')}
+        ${(data.explicacion || []).map(obs => `<li style="font-size:0.9rem; color:#334155; line-height:1.5;">${renderFormatted(obs.replace(/\n/g, ' '))}</li>`).join('')}
       </ul>
     ` : ''}
 
     <h3 style="margin-bottom:0.8rem; font-size:1.1rem; margin-top:1.5rem; border-bottom:2px solid #f1f5f9; padding-bottom:0.4rem;">${__('modal_tratamiento')}</h3>
-    <p style="font-size:0.95rem; line-height:1.6; color:#334155; white-space:pre-wrap;">${data.tratamiento || __('modal_tratamiento_default')}</p>
+    <p style="font-size:0.95rem; line-height:1.35; color:#334155;">${data.tratamiento ? renderFormatted(data.tratamiento) : __('modal_tratamiento_default')}</p>
 
     ${data.recomendacion_consumo ? `
       <h3 style="margin-bottom:0.8rem; font-size:1.1rem; margin-top:1.5rem; color:#b45309; border-bottom:2px solid #fef3c7; padding-bottom:0.4rem;">${__('modal_recomendacion_consumo')}</h3>
-      <p style="font-size:0.95rem; line-height:1.6; color:#92400E; background:#fffbeb; padding:1rem; border-radius:8px; border-left:4px solid #f59e0b;">${data.recomendacion_consumo}</p>
+      <p style="font-size:0.95rem; line-height:1.35; color:#92400E; background:#fffbeb; padding:1rem; border-radius:8px; border-left:4px solid #f59e0b;">${data.recomendacion_consumo ? renderFormatted(data.recomendacion_consumo) : ''}</p>
     ` : ''}
 
     ${(data.fuentes && data.fuentes.length > 0) ? `

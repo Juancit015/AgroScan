@@ -4,7 +4,7 @@ app.py — FrutIA backend (Flask)
 Punto de entrada de la aplicación. Expone:
   - Autenticación por clave de acceso (sesiones de Flask).
   - El endpoint /analizar, que recibe una imagen en base64, la envía a la
-    IA de visión (Groq · Llama 4 Scout) y persiste el resultado en SQLite.
+    IA de visión (Gemini / OpenRouter / Mistral con fallback) y persiste el resultado en SQLite.
   - Endpoints de lectura para historial y estadísticas del usuario logueado.
   - Endpoints /admin/* protegidos por rol, para gestión de usuarios y
     estadísticas globales de la plataforma.
@@ -26,8 +26,8 @@ from database import (inicializar_db, buscar_usuario_por_dni, guardar_analisis,
                       obtener_estadisticas_globales, obtener_analisis_por_id,
                       actualizar_idioma)
 from weasyprint import HTML
-from groq import Groq
-import base64, os, json, re, uuid, time, io
+import httpx
+import base64, os, json, re, uuid, time, io, random
 from datetime import datetime
 
 load_dotenv()
@@ -36,7 +36,84 @@ app = Flask(__name__)
 CORS(app)
 app.secret_key = "frutia_secret_2024"
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+_LLM_PROVIDERS = [
+    {
+        "name": "mistral",
+        "api_key": os.getenv("MISTRAL_API_KEY"),
+        "model": "mistral-large-latest",
+        "base_url": "https://api.mistral.ai/v1/chat/completions",
+        "format": "openai",
+    },
+    {
+        "name": "gemini",
+        "api_key": os.getenv("GEMINI_API_KEY"),
+        "model": "gemini-2.5-flash",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
+        "format": "gemini",
+    },
+    {
+        "name": "openrouter",
+        "api_key": os.getenv("OPENROUTER_API_KEY"),
+        "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+        "base_url": "https://openrouter.ai/api/v1/chat/completions",
+        "format": "openai",
+    },
+]
+
+def _llm(messages, max_tokens=1024):
+    token_limit = max(max_tokens, 8192)
+    providers = list(_LLM_PROVIDERS)
+    errores = []
+    for prov in providers:
+        if not prov["api_key"]:
+            errores.append(f"{prov['name']}: sin key")
+            continue
+        try:
+            if prov["format"] == "gemini":
+                return _call_gemini(messages, prov, token_limit)
+            else:
+                return _call_openai(messages, prov, token_limit)
+        except Exception as e:
+            errores.append(f"{prov['name']}: {str(e)[:60]}")
+            continue
+    raise Exception("; ".join(errores))
+
+def _call_gemini(messages, prov, token_limit):
+    parts = []
+    for msg in messages:
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            for c in content:
+                if c.get("type") == "text":
+                    parts.append({"text": c["text"]})
+                elif c.get("type") == "image_url":
+                    url = c["image_url"]["url"]
+                    raw = url.split(",", 1)[1] if "," in url else url
+                    mime = "image/jpeg"
+                    if "png" in url: mime = "image/png"
+                    elif "webp" in url: mime = "image/webp"
+                    parts.append({"inline_data": {"mime_type": mime, "data": raw}})
+        else:
+            parts.append({"text": str(content)})
+    url = prov["base_url"].format(model=prov["model"], key=prov["api_key"])
+    resp = httpx.post(url, headers={"Content-Type": "application/json"},
+        json={"contents": [{"parts": parts}], "generationConfig": {"maxOutputTokens": token_limit}},
+        timeout=60)
+    if resp.status_code == 429:
+        raise Exception("quota_exceeded")
+    if resp.status_code != 200:
+        raise Exception(f"HTTP {resp.status_code}")
+    return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+def _call_openai(messages, prov, token_limit):
+    resp = httpx.post(prov["base_url"],
+        headers={"Authorization": f"Bearer {prov['api_key']}", "Content-Type": "application/json"},
+        json={"model": prov["model"], "messages": messages, "max_tokens": min(token_limit, 2048)},
+        timeout=60)
+    if resp.status_code != 200:
+        raise Exception(f"HTTP {resp.status_code}: {resp.text[:100]}")
+    return resp.json()["choices"][0]["message"]["content"].strip()
+
 inicializar_db()
 
 @app.before_request
@@ -99,14 +176,14 @@ PASO 2 — Diagnóstico (solo si es agrícola):
     {"nombre": "nombre","severidad": "Leve / Moderada / Severa","descripcion": "descripción visual"}
   ],
   "explicacion": ["Observación 1","Observación 2","Observación 3"],
-  "zona_afectada": {"x":20,"y":30,"width":40,"height":35,"descripcion":"Zona afectada"},
-  "tratamiento": "recomendación concreta (si no necesita, escribir 'Mana hampiy recomendacionniyuq')",
+  "zona_afectada": {"box_2d": [84, 184, 314, 584], "descripcion": "Zona afectada (usa formato [ymin, xmin, ymax, xmax] de 0 a 1000. ¡EXTREMA PRECISIÓN! Enmarcar ÚNICAMENTE la lesión o podredumbre exacta. NO marques todo el fruto entero. Centra la caja en la peor parte)"},
+  "tratamiento": "Recomendación ordenada en pasos numerados. Usa **negritas** para palabras clave (productos, acciones, cifras, patógenos). Separa cada paso con un salto de línea. (si no necesita, escribir 'Mana hampiy recomendacionniyuq')",
   "recomendacion_consumo": "Breve advertencia o recomendación alimentaria (ej: Alto en azúcares, consumo moderado para diabéticos. Si no aplica, escribir 'Mana ima contraindicación tarikunchu')",
   "advertencia": "Kay diagnósticoqa orientativo. K'umuyuq agrónomo ingeniero nisqatawantaq.",
   "fuentes": [{"titulo":"título del documento o guía","institucion":"FAO / SENASA / MINAGRI"}]
 }
-Si no hay enfermedades: "enfermedades"=[] y "zona_afectada"={}
-explicacion: 3-5 observaciones visuales específicas.
+Si el cultivo está sano (no presenta enfermedades, plagas ni daños físicos evidentes): "enfermedades"=[] y "zona_afectada"={}. ¡NO inventes enfermedades! Si está sano, "tratamiento" debe ser 'Mana hampiy recomendacionniyuq' y "explicacion" debe detallar por qué se ve sano (color uniforme, sin manchas, etc.).
+explicacion: 3-5 observaciones visuales específicas, cada una en una sola línea sin saltos internos. Usa **negritas** para resaltar síntomas, patógenos o partes del cultivo.
 RESPONDE SIEMPRE EN QUECHUA (Runasimi)."""
     return """Eres un experto en agronomía y fitosanidad especializado en cultivos peruanos.
 Analiza la imagen y responde ÚNICAMENTE con un JSON válido, sin texto extra, sin bloques de código.
@@ -127,14 +204,14 @@ PASO 2 — Diagnóstico (solo si es agrícola):
     {"nombre": "nombre","severidad": "Leve / Moderada / Severa","descripcion": "descripción visual"}
   ],
   "explicacion": ["Observación 1","Observación 2","Observación 3"],
-  "zona_afectada": {"x":20,"y":30,"width":40,"height":35,"descripcion":"Zona afectada"},
-  "tratamiento": "recomendación concreta",
-  "recomendacion_consumo": "Breve advertencia o recomendación alimentaria (ej: Alto en azúcares, consumo moderado para diabéticos. Si no aplica, dejar vacío o 'Sin contraindicaciones relevantes')",
+  "zona_afectada": {"box_2d": [84, 184, 314, 584], "descripcion": "Zona afectada (usa formato [ymin, xmin, ymax, xmax] de 0 a 1000. ¡EXTREMA PRECISIÓN! Enmarcar ÚNICAMENTE la lesión o podredumbre exacta. NO marques todo el fruto entero. Centra la caja en la peor parte)"},
+  "tratamiento": "Recomendación ordenada en pasos numerados. Usa **negritas** para palabras clave (productos, acciones, cifras, patógenos). Separa cada paso con un salto de línea.",
+  "recomendacion_consumo": "Breve advertencia o recomendación alimentaria (ej: Alto en azúcares, consumo moderado para diabéticos. Si no aplica, dejar vacío o 'Sin contraindicaciones relevantes'). Usa **negritas** para términos importantes.",
   "advertencia": "Este diagnóstico es orientativo. Consulta a un ingeniero agrónomo para confirmación.",
   "fuentes": [{"titulo":"título del documento o guía","institucion":"FAO / SENASA / MINAGRI"}]
 }
-Si no hay enfermedades: "enfermedades"=[] y "zona_afectada"={}
-explicacion: 3-5 observaciones visuales específicas.
+Si el cultivo está sano (no presenta enfermedades, plagas ni daños físicos evidentes): "enfermedades"=[] y "zona_afectada"={}. ¡NO inventes enfermedades! Si está sano, "tratamiento" debe indicar que no se requiere tratamiento y "explicacion" debe detallar por qué se ve sano (color uniforme, sin manchas, etc.).
+explicacion: 3-5 observaciones visuales específicas, cada una en una sola línea sin saltos internos. Usa **negritas** para resaltar síntomas, patógenos o partes del cultivo.
 """
 
 # ── Decorador admin ───────────────────────────────────────────────
@@ -266,26 +343,47 @@ def analizar():
         if idioma not in ("es", "qu"):
             idioma = "es"
         t0 = time.time()
-        response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{"role": "user", "content": [
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{imagen_base64}"}},
-                {"type": "text", "text": obtener_prompt(idioma)}
-            ]}],
-            max_tokens=1024
-        )
+        mensajes = [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{imagen_base64}"}},
+            {"type": "text", "text": obtener_prompt(idioma)}
+        ]}]
+        texto = _llm(mensajes, max_tokens=1024)
         global ultimo_tiempo_respuesta
         ultimo_tiempo_respuesta = round(time.time() - t0, 1)
 
         # La IA a veces envuelve el JSON en ```json ... ``` pese a la
         # instrucción del prompt; se limpia antes de parsear.
-        texto    = response.choices[0].message.content.strip()
+        texto = texto.strip()
         texto    = re.sub(r"```json|```", "", texto).strip()
         resultado = json.loads(texto)
 
         # Imagen no agrícola: no se persiste nada, se informa al frontend.
         if not resultado.get("valido", True):
             return jsonify(resultado)
+
+        # Si hay enfermedades pero la IA no devolvió coordenadas de zona
+        # afectada (común con Gemini), se injecta una zona por defecto
+        # centrada en la imagen para que el overlay del frontend funcione.
+        enfermedades = resultado.get("enfermedades", [])
+        zona = resultado.get("zona_afectada", {})
+        
+        if enfermedades:
+            if "box_2d" in zona and isinstance(zona["box_2d"], list) and len(zona["box_2d"]) == 4:
+                try:
+                    ymin, xmin, ymax, xmax = [int(v) for v in zona["box_2d"]]
+                    zona["x"] = xmin
+                    zona["y"] = ymin
+                    zona["width"] = xmax - xmin
+                    zona["height"] = ymax - ymin
+                except (ValueError, TypeError):
+                    pass
+
+            if zona.get("x") is None:
+                resultado["zona_afectada"] = {
+                    "x": 10, "y": 10,
+                    "width": 80, "height": 80,
+                    "descripcion": zona.get("descripcion", "Zona afectada")
+                }
 
         # Imagen válida: se guarda en disco con nombre único
         # (usuario + timestamp + hash corto) para evitar colisiones.
@@ -456,12 +554,7 @@ IMPORTANTE:
     messages_groq.append({"role": "user", "content": pregunta})
 
     try:
-        response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=messages_groq,
-            max_tokens=320
-        )
-        respuesta = response.choices[0].message.content.strip()
+        respuesta = _llm(messages_groq, max_tokens=320)
         # Guarda el límite de 15 preguntas también en el backend (defensa en profundidad)
         pregunta_num = int(data.get("pregunta_num", 0) or 0)
         extra = {}
@@ -489,9 +582,10 @@ def estado_sistema():
     if "usuario_id" not in session:
         return jsonify({"error": "No has iniciado sesión"}), 401
     stats = obtener_estadisticas(session["usuario_id"])
+    provider = next((p for p in _LLM_PROVIDERS if p["api_key"]), None)
     return jsonify({
-        "online":           bool(os.getenv("GROQ_API_KEY")),
-        "modelo":           "Llama 4 Scout",
+        "online":           provider is not None,
+        "modelo":           f"{provider['name']} · {provider['model']}" if provider else "Sin proveedor",
         "ultimo_tiempo_s":  ultimo_tiempo_respuesta,
         "total_analisis":   stats["total_analisis"]
     })
@@ -501,6 +595,17 @@ def estado_sistema():
 # Generado 100% en el backend — no depende del tamaño de la ventana
 # del navegador. El resultado es siempre idéntico sin importar el
 # cliente, el viewport o el estado de carga de fuentes.
+
+def format_text_for_pdf(text):
+    if not isinstance(text, str):
+        return text
+    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'^\s*\* ', ' • ', text, flags=re.MULTILINE)
+    text = re.sub(r'\*([^*]+)\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'\n{2,}', '\n', text)
+    return text.replace('\n', '<br>')
+
+app.jinja_env.filters['render_formatted'] = format_text_for_pdf
 
 REPORTE_PDF_TEMPLATE = """
 <!DOCTYPE html>
@@ -713,7 +818,7 @@ REPORTE_PDF_TEMPLATE = """
   <div class="bloque">
     <div class="bloque-titulo obs"><img src="{{ emoji.microscope }}" class="emoji-img" alt="">{{ t.observaciones }}</div>
     <ul class="obs-lista">
-      {% for obs in explicacion %}<li>{{ obs }}</li>{% endfor %}
+      {% for obs in explicacion %}<li>{{ obs | render_formatted | safe }}</li>{% endfor %}
     </ul>
   </div>
   {% endif %}
@@ -723,7 +828,7 @@ REPORTE_PDF_TEMPLATE = """
     <div class="bloque-titulo tratamiento"><img src="{{ emoji.pill }}" class="emoji-img" alt="">{{ t.tratamiento }}</div>
     <div class="caja-tratamiento">
       {% if tratamiento and tratamiento != '—' %}
-        {{ tratamiento }}
+        {{ tratamiento | render_formatted | safe }}
       {% else %}
         {{ t.tratamiento_default }}
       {% endif %}
@@ -735,7 +840,7 @@ REPORTE_PDF_TEMPLATE = """
     <div class="bloque-titulo obs" style="color: #9333EA;"><img src="{{ emoji.fork_knife }}" class="emoji-img" alt="">{{ t.recomendacion_consumo }}</div>
     <div class="caja-tratamiento" style="background: #FAF5FF; border-left-color: #A855F7;">
        {% if recomendacion_consumo and recomendacion_consumo.lower() not in ('sin contraindicaciones relevantes', 'mana ima contraindicación tarikunchu') %}
-        {{ recomendacion_consumo }}
+        {{ recomendacion_consumo | render_formatted | safe }}
       {% else %}
         {{ t.consumo_default }}
       {% endif %}

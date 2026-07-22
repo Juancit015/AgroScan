@@ -36,6 +36,11 @@ const TRADUCCIONES = {
     reg_error_sin_letra: 'El nombre debe contener al menos una letra',
     reg_error_clave: 'La clave debe tener 8 dígitos',
     reg_error_generico: 'Error al registrar',
+    tag_esparrago: '🥬 Espárrago',
+    tag_frutas: '🥭 Frutas',
+    tag_verduras: '🌽 Verduras',
+    tag_ia: '🤖 IA Groq',
+    tag_dashboard: '📊 Dashboard',
   },
   qu: {
     panel_titulo: 'Diagnóstico <em>yuyayniyuq</em> chakra yukunapaq',
@@ -73,6 +78,11 @@ const TRADUCCIONES = {
     reg_error_sin_letra: 'Suti huk letrayuq kanan',
     reg_error_clave: 'Kichay 8 qillqayuq kanan',
     reg_error_generico: 'Pantasqa qillqakuy',
+    tag_esparrago: '🥬 Espárrago',
+    tag_frutas: '🥭 Rurukuna',
+    tag_verduras: '🌽 Chakra yuyukuna',
+    tag_ia: '🤖 IA Groq',
+    tag_dashboard: '📊 Tawla',
   }
 };
 
